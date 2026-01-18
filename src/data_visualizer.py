@@ -108,22 +108,30 @@ print(" Chart 4: Top videos created")
 # =========================
 # 5. TIMELINE EVOLUTION
 # =========================
-plt.figure(figsize=(12, 6))
-df_videos['published_date'] = pd.to_datetime(df_videos['publishedAt']).dt.date
-timeline = df_videos.groupby('published_date').size()
+plt.figure(figsize=(14, 6))
+df_videos['published_date'] = pd.to_datetime(df_videos['publishedAt'])
+
+# Group by year-month for better visualization over 2-year range
+df_videos['year_month'] = df_videos['published_date'].dt.to_period('M')
+timeline = df_videos.groupby('year_month').size()
+
+# Convert period index to strings for plotting
+timeline_dates = [str(period) for period in timeline.index]
+timeline_values = timeline.values
 
 plt.plot(
-    range(len(timeline)),
-    timeline.values,
+    timeline_dates,
+    timeline_values,
     marker='o',
-    linewidth=2
+    linewidth=2,
+    markersize=4
 )
 
-plt.title('Evolution of Published Videos')
-plt.xlabel('Date')
-plt.ylabel('Number of Videos')
-plt.xticks(range(len(timeline)), timeline.index.astype(str), rotation=45)
-plt.grid(True, alpha=0.3)
+plt.title('Evolution of Published Videos Over Time', fontsize=14, fontweight='bold')
+plt.xlabel('Month', fontsize=12)
+plt.ylabel('Number of Videos', fontsize=12)
+plt.xticks(rotation=45, ha='right')
+plt.grid(True, alpha=0.3, linestyle='--')
 plt.tight_layout()
 plt.savefig('outputs/timeline.png', dpi=300, bbox_inches='tight')
 plt.close()
