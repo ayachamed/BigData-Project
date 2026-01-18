@@ -3,16 +3,20 @@ import json
 from datetime import datetime
 import re
 from collections import Counter
+import utils
 
 print("=== ANALYSE DES VIDÉOS YOUTUBE SUR GAZA (Pandas) ===")
 
 # Charger les données
-# Charger les données
-with open('data/youtube_videos.json', 'r', encoding='utf-8') as f:
-    videos_data = json.load(f)
+try:
+    with open('data/youtube_videos.json', 'r', encoding='utf-8') as f:
+        videos_data = json.load(f)
 
-with open('data/youtube_comments.json', 'r', encoding='utf-8') as f:
-    comments_data = json.load(f)
+    with open('data/youtube_comments.json', 'r', encoding='utf-8') as f:
+        comments_data = json.load(f)
+except FileNotFoundError:
+    print("Files not found! Run data_collector.py first.")
+    exit()
 
 df_videos = pd.DataFrame(videos_data)
 df_comments = pd.DataFrame(comments_data)
@@ -46,11 +50,28 @@ timeline = df_videos.groupby('published_date').size()
 print("Dernières 10 dates:")
 print(timeline.tail(10))
 
-print(f"\n4.  MOTS-CLÉS DANS LES TITRES")
-all_words = ' '.join(df_videos['title'].str.lower()).split()
-# Filtrer les mots courts et les stop words simples
-stop_words = {'the', 'and', 'for', 'with', 'this', 'that', 'from', 'have', 'has', 'was', 'were', 'are', 'you', 'your'}
-word_counts = Counter([word for word in all_words if len(word) > 3 and word not in stop_words])
+print(f"\n4.  MOTS-CLÉS DANS LES TITRES (Normalisés)")
+# Keyword Extraction Pipeline
+all_titles = ' '.join(df_videos['title']).lower()
+
+# 1. Remove hashtags entirely
+all_titles = re.sub(r'#\w+', '', all_titles)
+
+all_words = all_titles.split()
+
+# 2. Get stopwords and normalize
+stop_words = utils.get_stop_words()
+stop_words.add('video') # Add specific noise word if needed
+
+normalized_words = []
+for word in all_words:
+    if len(word) > 3 and word not in stop_words:
+        # Normalize (clean punct, mapping, stemming)
+        norm_word = utils.normalize_keyword(word)
+        if norm_word and len(norm_word) > 3 and norm_word not in stop_words:
+            normalized_words.append(norm_word)
+
+word_counts = Counter(normalized_words)
 print("Mots les plus fréquents dans les titres:")
 for word, count in word_counts.most_common(15):
     print(f"   {word}: {count}")
@@ -61,11 +82,14 @@ for idx, row in top_videos.iterrows():
     print(f"   {row['viewCount']} vues - {row['channelTitle']}: {row['title'][:60]}...")
 
 if len(df_comments) > 0:
-    print(f"\n6.  ANALYSE DES COMMENTAIRES")
+    print(f"\n6.  ANALYSE DES COMMENTAIRES (Filtrés Anglais)")
     print(f"   - Commentaires totaux: {len(df_comments)}")
     
     # Convertir les likes des commentaires
     df_comments['likeCount'] = pd.to_numeric(df_comments['likeCount'], errors='coerce').fillna(0)
+    
+    # Double check filtering just in case (though collector does it)
+    # Could imply stricter filtering here if needed, but we trust collector for now.
     
     top_authors = df_comments['author'].value_counts().head(10)
     print("   - Auteurs les plus actifs:")

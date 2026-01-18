@@ -3,61 +3,100 @@ import json
 import time
 import pandas as pd
 from datetime import datetime, timedelta
+import utils
 
 class YouTubeCollector:
     def __init__(self, api_key):
         self.api_key = api_key
         self.base_url = "https://www.googleapis.com/youtube/v3"
         
-    def search_videos(self, query, max_results=25, published_after=None, published_before=None):
-        """Search videos by keyword"""
+    def search_videos(self, query, max_results=50, published_after=None, published_before=None):
+        """Search videos by keyword with strict constraints"""
         videos = []
+        next_page_token = None
         
+        # Enforce max_results to be at least 50 if possible (but we fetch in batches if needed)
+        # The user requested "never 25", so we aim for 50.
+        target_results = max(max_results, 50)
+        
+        print(f"   Targeting {target_results} videos for query '{query}'...")
+
         url = f"{self.base_url}/search"
-        params = {
-            'part': 'snippet',
-            'q': query,
-            'type': 'video',
-            'maxResults': min(max_results, 50),
-            'key': self.api_key,
-            'order': 'date'
-        }
         
-        if published_after:
-            params['publishedAfter'] = published_after
+        while len(videos) < target_results:
+            params = {
+                'part': 'snippet',
+                'q': query,
+                'type': 'video',
+                'maxResults': min(target_results - len(videos), 50), # API limit is 50
+                'key': self.api_key,
+                'order': 'date' # Use date to ensure we get the relevant window coverage if needed
+            }
             
-        if published_before:
-            params['publishedBefore'] = published_before
-            
-        try:
-            response = requests.get(url, params=params)
-            data = response.json()
-            
-            if 'items' in data:
+            if published_after:
+                params['publishedAfter'] = published_after
+            if published_before:
+                params['publishedBefore'] = published_before
+            if next_page_token:
+                params['pageToken'] = next_page_token
+                
+            try:
+                response = requests.get(url, params=params)
+                data = response.json()
+                
+                if 'items' not in data:
+                    print(f"   No items found or API error: {data}")
+                    break
+                    
                 for item in data['items']:
+                    video_id = item['id']['videoId']
+                    
+                    # Get detailed stats to check duration (filter shorts)
+                    stats = self.get_video_details(video_id)
+                    
+                    if not stats: 
+                        continue
+                        
+                    # Filter Shorts: Duration must be >= 60 seconds
+                    duration_seconds = utils.parse_duration(stats.get('duration', ''))
+                    if duration_seconds < 60:
+                        continue
+                        
                     video_data = {
-                        'videoId': item['id']['videoId'],
+                        'videoId': video_id,
                         'title': item['snippet']['title'],
                         'description': item['snippet']['description'],
                         'publishedAt': item['snippet']['publishedAt'],
                         'channelTitle': item['snippet']['channelTitle'],
-                        'query': query
+                        'query': query,
+                        'durationVal': duration_seconds # Keep for debugging
                     }
-                    # Get statistics
-                    stats = self.get_video_stats(item['id']['videoId'])
                     video_data.update(stats)
                     videos.append(video_data)
                     
-        except Exception as e:
-            print(f"Error during search: {e}")
-            
+                    if len(videos) >= target_results:
+                        break
+                
+                if 'nextPageToken' in data and len(videos) < target_results:
+                    next_page_token = data['nextPageToken']
+                    time.sleep(0.2) # API rate limit safety
+                else:
+                    break
+                    
+            except Exception as e:
+                print(f"Error during search: {e}")
+                break
+                
+        if len(videos) < target_results:
+            print(f"   Warning: Could only find {len(videos)} videos matching constraints (Target: {target_results})")
+
         return videos
     
-    def get_video_stats(self, video_id):
-        """Get video statistics"""
+    def get_video_details(self, video_id):
+        """Get video statistics and content details (for duration)"""
         url = f"{self.base_url}/videos"
         params = {
-            'part': 'statistics,snippet',
+            'part': 'statistics,snippet,contentDetails',
             'id': video_id,
             'key': self.api_key
         }
@@ -72,20 +111,17 @@ class YouTubeCollector:
                     'viewCount': item['statistics'].get('viewCount', 0),
                     'likeCount': item['statistics'].get('likeCount', 0),
                     'commentCount': item['statistics'].get('commentCount', 0),
-                    'tags': item['snippet'].get('tags', [])
+                    'tags': item['snippet'].get('tags', []),
+                    'duration': item['contentDetails'].get('duration', ''),
+                    'definition': item['contentDetails'].get('definition', '')
                 }
         except Exception as e:
             print(f"Error getting video stats {video_id}: {e}")
             
-        return {
-            'viewCount': 0,
-            'likeCount': 0,
-            'commentCount': 0,
-            'tags': []
-        }
+        return None
     
     def get_comments(self, video_id, max_comments=100):
-        """Get video comments"""
+        """Get video comments with English filtering"""
         comments = []
         url = f"{self.base_url}/commentThreads"
         params = {
@@ -105,24 +141,29 @@ class YouTubeCollector:
                     break
                     
                 for item in data['items']:
-                    comment = item['snippet']['topLevelComment']['snippet']
+                    comment_snip = item['snippet']['topLevelComment']['snippet']
+                    text = comment_snip['textDisplay']
+                    
+                    # ENGLISH FILTERING
+                    if not utils.is_english(text):
+                        continue
+                        
                     comments.append({
                         'videoId': video_id,
                         'commentId': item['id'],
-                        'author': comment['authorDisplayName'],
-                        'text': comment['textDisplay'],
-                        'likeCount': comment['likeCount'],
-                        'publishedAt': comment['publishedAt'],
-                        'sentiment': 'neutral'  # For future analysis
+                        'author': comment_snip['authorDisplayName'],
+                        'text': text,
+                        'likeCount': comment_snip['likeCount'],
+                        'publishedAt': comment_snip['publishedAt'],
+                        'sentiment': 'neutral'
                     })
                 
-                # Pagination
                 if 'nextPageToken' in data and len(comments) < max_comments:
                     params['pageToken'] = data['nextPageToken']
                 else:
                     break
                     
-                time.sleep(0.1)  # Respect API quotas
+                time.sleep(0.1)
                 
         except Exception as e:
             print(f"Error getting comments {video_id}: {e}")
@@ -131,12 +172,17 @@ class YouTubeCollector:
 
     def save_to_files(self, videos_data, output_dir="."):
         """Save data to JSON and CSV files"""
+        if not videos_data:
+            print("No data to save.")
+            return
+
         # Save videos
         with open(f'{output_dir}/youtube_videos.json', 'w', encoding='utf-8') as f:
             json.dump(videos_data, f, ensure_ascii=False, indent=2)
         
         # Save to CSV
         df_videos = pd.DataFrame(videos_data)
+        # Drop complex objects for CSV if needed, but pandas usually handles basic dicts as strings
         df_videos.to_csv(f'{output_dir}/youtube_videos.csv', index=False, encoding='utf-8')
         
         # Save all comments
@@ -169,24 +215,26 @@ def main():
         "Israel Hamas war"
     ]
     
-    # Period (from October 7, 2023 to October 10, 2025)
-    published_after = "2023-10-07T00:00:00Z"
-    published_before = "2025-10-10T23:59:59Z"
+    # Strict Period: 2023-10-06 to 2025-10-11
+    published_after = "2023-10-06T00:00:00Z"
+    published_before = "2025-10-11T23:59:59Z"
     
     collector = YouTubeCollector(API_KEY)
     all_videos_data = []
     
     print(" Starting YouTube data collection...")
-    print(f" Period: from 10/07/2023 to 10/10/2025")
+    print(f" Period: from {published_after} to {published_before}")
     print(f" Keywords: {queries}")
+    print(" Constraints: >60s duration (Standard), English comments only, 50 videos per query.")
     
     for i, query in enumerate(queries, 1):
         print(f"\n Search {i}/{len(queries)}: '{query}'")
         
+        # Requesting 50 videos
         videos = collector.search_videos(query, max_results=50, published_after=published_after, published_before=published_before)
         
         for j, video in enumerate(videos, 1):
-            print(f"   Video {j}/{len(videos)}: {video['title'][:50]}...")
+            print(f"   Video {j}/{len(videos)}: {video['title'][:50]}... ({video.get('duration', 'N/A')})")
             
             # Get comments
             comments = collector.get_comments(video['videoId'], max_comments=30)
@@ -195,10 +243,8 @@ def main():
             
             all_videos_data.append(video)
             
-            # Pause between requests
             time.sleep(0.5)
         
-        # Pause between keywords
         time.sleep(1)
     
     # Save data

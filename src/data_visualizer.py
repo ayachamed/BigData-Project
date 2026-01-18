@@ -2,6 +2,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 from collections import Counter
+import re
+import utils
 
 # Chart configuration
 plt.style.use('default')
@@ -30,12 +32,13 @@ print(" CREATING VISUALIZATIONS...")
 # =========================
 plt.figure(figsize=(12, 6))
 top_channels = df_videos['channelTitle'].value_counts().head(10)
-plt.barh(range(len(top_channels)), top_channels.values)
-plt.yticks(range(len(top_channels)), top_channels.index)
-plt.title('Top 10 Channels by Video Count')
-plt.xlabel('Number of Videos')
-plt.tight_layout()
-plt.savefig('outputs/top_channels.png', dpi=300, bbox_inches='tight')
+if not top_channels.empty:
+    plt.barh(range(len(top_channels)), top_channels.values)
+    plt.yticks(range(len(top_channels)), top_channels.index)
+    plt.title('Top 10 Channels by Video Count')
+    plt.xlabel('Number of Videos')
+    plt.tight_layout()
+    plt.savefig('outputs/top_channels.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 1: Top channels created")
 
@@ -43,25 +46,32 @@ print(" Chart 1: Top channels created")
 # 2. MOST FREQUENT KEYWORDS
 # =========================
 plt.figure(figsize=(12, 6))
-all_words = ' '.join(df_videos['title'].str.lower()).split()
-stop_words = {
-    'the', 'and', 'for', 'with', 'this', 'that', 'from',
-    'have', 'has', 'was', 'were', 'are', 'you', 'your',
-    'about', 'their'
-}
 
-word_counts = Counter(
-    word for word in all_words if len(word) > 3 and word not in stop_words
-)
+# Keyword extraction (Sync with Analyzer)
+all_titles = ' '.join(df_videos['title']).lower()
+all_titles = re.sub(r'#\w+', '', all_titles)  # Remove hashtags
 
+all_words = all_titles.split()
+stop_words = utils.get_stop_words()
+stop_words.add('video')
+
+normalized_words = []
+for word in all_words:
+    if len(word) > 3 and word not in stop_words:
+        norm_word = utils.normalize_keyword(word)
+        if norm_word and len(norm_word) > 3 and norm_word not in stop_words:
+            normalized_words.append(norm_word)
+
+word_counts = Counter(normalized_words)
 top_words = dict(word_counts.most_common(15))
 
-plt.barh(range(len(top_words)), list(top_words.values()))
-plt.yticks(range(len(top_words)), list(top_words.keys()))
-plt.title('Top 15 Keywords in Titles')
-plt.xlabel('Frequency')
-plt.tight_layout()
-plt.savefig('outputs/top_words.png', dpi=300, bbox_inches='tight')
+if top_words:
+    plt.barh(range(len(top_words)), list(top_words.values()))
+    plt.yticks(range(len(top_words)), list(top_words.keys()))
+    plt.title('Top 15 Keywords in Titles (Normalized)')
+    plt.xlabel('Frequency')
+    plt.tight_layout()
+    plt.savefig('outputs/top_words.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 2: Top keywords created")
 
@@ -101,12 +111,13 @@ top_videos['short_title'] = (
     top_videos['channelTitle'] + ': ' + top_videos['title'].str[:25] + '...'
 )
 
-plt.barh(range(len(top_videos)), top_videos['viewCount'])
-plt.yticks(range(len(top_videos)), top_videos['short_title'])
-plt.title('Top 8 Most Viewed Videos')
-plt.xlabel('Views')
-plt.tight_layout()
-plt.savefig('outputs/top_videos.png', dpi=300, bbox_inches='tight')
+if not top_videos.empty:
+    plt.barh(range(len(top_videos)), top_videos['viewCount'])
+    plt.yticks(range(len(top_videos)), top_videos['short_title'])
+    plt.title('Top 8 Most Viewed Videos')
+    plt.xlabel('Views')
+    plt.tight_layout()
+    plt.savefig('outputs/top_videos.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 4: Top videos created")
 
@@ -128,21 +139,22 @@ timeline = timeline.reindex(full_range, fill_value=0)
 timeline_dates = [str(period) for period in timeline.index]
 timeline_values = timeline.values
 
-plt.plot(
-    timeline_dates,
-    timeline_values,
-    marker='o',
-    linewidth=2,
-    markersize=4
-)
+if len(timeline_dates) > 0:
+    plt.plot(
+        timeline_dates,
+        timeline_values,
+        marker='o',
+        linewidth=2,
+        markersize=4
+    )
 
-plt.title('Evolution of Published Videos Over Time', fontsize=14, fontweight='bold')
-plt.xlabel('Month', fontsize=12)
-plt.ylabel('Number of Videos', fontsize=12)
-plt.xticks(rotation=45, ha='right')
-plt.grid(True, alpha=0.3, linestyle='--')
-plt.tight_layout()
-plt.savefig('outputs/timeline.png', dpi=300, bbox_inches='tight')
+    plt.title('Evolution of Published Videos Over Time', fontsize=14, fontweight='bold')
+    plt.xlabel('Month', fontsize=12)
+    plt.ylabel('Number of Videos', fontsize=12)
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(True, alpha=0.3, linestyle='--')
+    plt.tight_layout()
+    plt.savefig('outputs/timeline.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 5: Timeline created")
 
@@ -171,9 +183,9 @@ print(f"   • Videos analyzed: {len(df_videos)}")
 print(f"   • Unique channels: {df_videos['channelTitle'].nunique()}")
 print(f"   • Total views: {int(df_videos['viewCount'].sum()):,}")
 print(f"   • Total likes: {int(df_videos['likeCount'].sum()):,}")
-print(f"   • Most popular keyword: '{df_videos['query'].value_counts().index[0]}'")
-print(f"   • Most active channel: '{df_videos['channelTitle'].value_counts().index[0]}'")
-print(f"   • Most frequent word: '{word_counts.most_common(1)[0][0]}'")
+print(f"   • Most popular keyword: '{df_videos['query'].value_counts().index[0] if not df_videos.empty else 'N/A'}'")
+print(f"   • Most active channel: '{df_videos['channelTitle'].value_counts().index[0] if not df_videos.empty else 'N/A'}'")
+print(f"   • Most frequent word: '{word_counts.most_common(1)[0][0] if word_counts else 'N/A'}'")
 
 print("\n 6 charts created successfully!")
 print(" All charts are saved in outputs/")
