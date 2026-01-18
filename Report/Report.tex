@@ -21,6 +21,7 @@
 % --- Page Geometry ---
 \geometry{a4paper, margin=2.5cm}
 
+% --- Brand Colors (Matching Albumati Style) ---
 \definecolor{primaryColor}{HTML}{2B85BB} 
 \definecolor{secondaryColor}{HTML}{0F0E0E}
 \definecolor{codeGreen}{rgb}{0,0.6,0}
@@ -149,7 +150,7 @@
 % Abstract
 % --------------------------------------------------------------------------------
 \section*{Abstract}
-This report details the design and implementation of a comprehensive Big Data analytical pipeline tailored to process and analyze YouTube data concerning the ongoing genocide in Gaza. Leveraging the \textbf{YouTube Data API v3}, the project systematically aggregates video metadata and user comments from October 6, 2023 to October 10, 2025. The infrastructure employs a distributed architecture featuring \textbf{Hadoop HDFS} for resilient data storage and \textbf{Apache Spark} concepts for processing. The analysis, executed via Python, uncovers critical insights into global public engagement, the dominance of major media outlets, and the temporal evolution of digital discourse. This work demonstrates the efficacy of Big Data technologies in interpreting complex, high-volume social media trends.
+This report details the design and implementation of a comprehensive Big Data analytical pipeline tailored to process and analyze YouTube data concerning the ongoing genocide in Gaza. Leveraging the \textbf{YouTube Data API v3}, the project systematically aggregates video metadata and user comments from October 2023 to October 2025. The infrastructure employs a distributed architecture featuring \textbf{Hadoop HDFS} for resilient data storage and \textbf{Apache Spark} concepts for processing. The analysis, executed via Python, uncovers critical insights into global public engagement, the dominance of major media outlets, and the temporal evolution of digital discourse. This work demonstrates the efficacy of Big Data technologies in interpreting complex, high-volume social media trends.
 
 \newpage
 
@@ -163,7 +164,7 @@ This report details the design and implementation of a comprehensive Big Data an
     \includegraphics[width=0.3\textwidth]{logo.png}
 \end{figure}
 
-The digital age has fundamentally altered the landscape of geopolitical discourse. Social media platforms, particularly YouTube, serve not only as repositories of user-generated content but as primary sources of news and information for millions globally. The genocide in Gaza has generated an unprecedented volume of digital interaction, providing a unique opportunity to apply data science techniques to understand global feeling.
+The digital age has fundamentally altered the landscape of geopolitical discourse. Social media platforms, particularly YouTube, serve not only as repositories of user-generated content but as primary sources of news and information for millions globally. The genocide in Gaza has generated an unprecedented volume of digital interaction, providing a unique opportunity to apply data science techniques to understand global sentiment.
 
 \subsection{1.1 Problem Identification}
 Analyzing this vast ocean of data presents significant challenges:
@@ -276,6 +277,9 @@ Before coding, a robust Big Data environment was established. We utilized a pre-
     \item \textbf{Service Verification:} Verified `NameNode`, `DataNode`, and `ResourceManager` daemons were active using the Java Process Status (`jps`) tool.
 \end{itemize}
 
+\subsubsection{Environment Setup Challenges}
+Due to persistent technical challenges encountered while attempting to configure Docker on my local machine, including multiple failed attempts (approximately six) despite consulting various resources such as peers, AI tools, and GitHub repositories, I opted to utilize the pre-configured Virtual Machine provided by our lab instructor. This decision allowed me to proceed with the project by following the configurations outlined in Labs 1 and 2.
+
 \subsection{Phase 2: Data Ingestion (The Collector)}
 We developed a custom Python module, `src/data_collector.py`, to interface with the Google Cloud Platform. The script implements:
 \begin{itemize}
@@ -284,7 +288,7 @@ We developed a custom Python module, `src/data_collector.py`, to interface with 
     \item Error Handling: Robust `try-except` blocks to manage network timeouts or API errors.
 \end{itemize}
 
-The search queries were carefully selected to cover various aspects of the conflict, and we configured the collector to retrieve up to 50 videos for each query to ensure a sufficient dataset size:
+The search queries were carefully selected to cover various aspects of the conflict:
 \textit{"Gaza war", "Israel Palestine conflict", "Gaza humanitarian crisis", "Palestine news", "Israel Hamas war"}.
 
 \begin{lstlisting}[caption={Core Search Logic in data\_collector.py}]
@@ -300,7 +304,7 @@ def search_videos(self, query, max_results=50, published_after=None, published_b
         'type': 'video',
         'maxResults': min(max_results, 50),
         'key': self.api_key,
-        'order': 'relevance', # Sort by relevance to get top videos
+        'order': 'date', # Sort by date to get a timeline
         'publishedAfter': published_after,
         'publishedBefore': published_before
     }
@@ -365,7 +369,7 @@ Finally, `src/data_visualizer.py` converts the processed data into visual narrat
 % --------------------------------------------------------------------------------
 \section{5. Results and Discussion}
 
-The analysis of the dataset collected between Oct 6, 2023 and Oct 10, 2025 yielded significant findings regarding the digital coverage of the conflict.
+The analysis of the dataset collected between Oct 2023 and Oct 2025 yielded significant findings regarding the digital coverage of the conflict.
 
 \subsection{5.1 Media Dominance}
 The analysis of the "Top Channels" clearly indicates that legacy media and established international news outlets dominate the conversation on YouTube. Unlike other social platforms where individual content creators may lead, YouTube searches for this conflict act primarily as a news aggregator.
@@ -441,7 +445,7 @@ Key takeaways include:
 \subsection{Future Enhancements}
 To further evolve this project, we propose:
 \begin{itemize}
-    \item feeling Analysis: Integrating Natural Language Processing (NLP) models (e.g., VADER or BERT) to classify the feeling of millions of user comments.
+    \item Sentiment Analysis: Integrating Natural Language Processing (NLP) models (e.g., VADER or BERT) to classify the sentiment of millions of user comments.
     \item Real-Time Streaming: Implementing Apache Kafka to ingest video data in real-time as it is uploaded.
     \item Geospatial Analysis: mapping the origin of comments to understand global reactions by region.
 \end{itemize}

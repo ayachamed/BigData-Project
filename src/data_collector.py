@@ -9,7 +9,7 @@ class YouTubeCollector:
         self.api_key = api_key
         self.base_url = "https://www.googleapis.com/youtube/v3"
         
-    def search_videos(self, query, max_results=50, published_after=None, published_before=None):
+    def search_videos(self, query, max_results=25, published_after=None, published_before=None):
         """Search videos by keyword"""
         videos = []
         
@@ -20,7 +20,7 @@ class YouTubeCollector:
             'type': 'video',
             'maxResults': min(max_results, 50),
             'key': self.api_key,
-            'order': 'relevance'
+            'order': 'date'
         }
         
         if published_after:
@@ -113,7 +113,7 @@ class YouTubeCollector:
                         'text': comment['textDisplay'],
                         'likeCount': comment['likeCount'],
                         'publishedAt': comment['publishedAt'],
-                        'feeling': 'neutral'  # For future analysis
+                        'sentiment': 'neutral'  # For future analysis
                     })
                 
                 # Pagination
@@ -170,7 +170,7 @@ def main():
     ]
     
     # Period (from October 7, 2023 to October 10, 2025)
-    published_after = "2023-10-06T00:00:00Z"
+    published_after = "2023-10-07T00:00:00Z"
     published_before = "2025-10-10T23:59:59Z"
     
     collector = YouTubeCollector(API_KEY)
