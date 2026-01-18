@@ -277,6 +277,9 @@ Before coding, a robust Big Data environment was established. We utilized a pre-
     \item \textbf{Service Verification:} Verified `NameNode`, `DataNode`, and `ResourceManager` daemons were active using the Java Process Status (`jps`) tool.
 \end{itemize}
 
+\subsubsection{Environment Setup Challenges}
+Due to persistent technical challenges encountered while attempting to configure Docker on my local machine, including multiple failed attempts (approximately six) despite consulting various resources such as peers, AI tools, and GitHub repositories, I opted to utilize the pre-configured Virtual Machine provided by our lab instructor. This decision allowed me to proceed with the project by following the configurations outlined in Labs 1 and 2.
+
 \subsection{Phase 2: Data Ingestion (The Collector)}
 We developed a custom Python module, `src/data_collector.py`, to interface with the Google Cloud Platform. The script implements:
 \begin{itemize}
