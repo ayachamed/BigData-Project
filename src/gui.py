@@ -17,10 +17,14 @@ import glob
 # Try to import pygame for music (optional)
 try:
     import pygame
+    pygame.mixer.init()
     PYGAME_AVAILABLE = True
 except ImportError:
     PYGAME_AVAILABLE = False
     print("pygame not available - background music disabled")
+except Exception as e:
+    PYGAME_AVAILABLE = False
+    print(f"pygame init error: {e}")
 
 # Palestinian flag colors
 COLORS = {
@@ -36,6 +40,33 @@ COLORS = {
 # Multimedia files
 BACKGROUND_MUSIC = 'video_2026-01-18_17-41-45_1.mp3'
 BACKGROUND_IMAGE = 'photo_2025-12-31_11-31-41.jpg'
+
+
+def resize_image(img, size):
+    """Resize image with backward-compatible PIL."""
+    try:
+        # New PIL (>= 9.1.0)
+        return img.resize(size, Image.Resampling.LANCZOS)
+    except AttributeError:
+        # Old PIL
+        try:
+            return img.resize(size, Image.LANCZOS)
+        except AttributeError:
+            return img.resize(size, Image.ANTIALIAS)
+
+
+def thumbnail_image(img, size):
+    """Create thumbnail with backward-compatible PIL."""
+    try:
+        # New PIL (>= 9.1.0)
+        img.thumbnail(size, Image.Resampling.LANCZOS)
+    except AttributeError:
+        # Old PIL
+        try:
+            img.thumbnail(size, Image.LANCZOS)
+        except AttributeError:
+            img.thumbnail(size, Image.ANTIALIAS)
+    return img
 
 
 class PipelineExecutor:
@@ -90,8 +121,6 @@ class PipelineExecutor:
             all_videos = []
             
             queries = self.config['queries']
-            start_iso = f"{self.config['start_date']}T00:00:00Z"
-            end_iso = f"{self.config['end_date']}T23:59:59Z"
             
             for i, query in enumerate(queries):
                 progress = 10 + (i / len(queries)) * 25
@@ -226,20 +255,15 @@ class ImageGallery(tk.Frame):
         for img_path in image_files:
             try:
                 img = Image.open(img_path)
-                # Resize to fit - compatible with old and new PIL versions
-                try:
-                    # Try new PIL (>= 9.1.0)
-                    img.thumbnail((700, 500), Image.Resampling.LANCZOS)
-                except AttributeError:
-                    # Fall back to old PIL
-                    img.thumbnail((700, 500), Image.LANCZOS)
-                    
+                # Use helper function for compatibility
+                img = thumbnail_image(img, (700, 500))
                 photo = ImageTk.PhotoImage(img)
                 self.images.append({
                     'path': img_path,
                     'photo': photo,
                     'name': os.path.basename(img_path)
                 })
+                print(f"✓ Loaded: {img_path}")
             except Exception as e:
                 print(f"Error loading {img_path}: {e}")
         
@@ -248,6 +272,8 @@ class ImageGallery(tk.Frame):
             self.show_current_image()
             self.prev_btn.config(state='normal')
             self.next_btn.config(state='normal')
+        else:
+            self.counter_label.config(text="No images found in outputs/")
         
     def show_current_image(self):
         """Display current image."""
@@ -290,7 +316,6 @@ class YouTubeDataCollectorGUI:
         # Initialize music
         if PYGAME_AVAILABLE and os.path.exists(BACKGROUND_MUSIC):
             try:
-                pygame.mixer.init()
                 pygame.mixer.music.load(BACKGROUND_MUSIC)
                 pygame.mixer.music.set_volume(0.5)  # 50% volume
                 print("✓ Background music loaded")
@@ -320,11 +345,11 @@ class YouTubeDataCollectorGUI:
                 bg_img = Image.open(BACKGROUND_IMAGE)
                 
                 # Resize to fit window
-                bg_img = bg_img.resize((800, 700), Image.LANCZOS)
+                bg_img = resize_image(bg_img, (800, 700))
                 
                 # Apply transparency (50%)
                 enhancer = ImageEnhance.Brightness(bg_img.convert('RGB'))
-                bg_img = enhancer.enhance(0.3)  # Darken to 30% for subtle background
+                bg_img = enhancer.enhance(0.5)  # 50% brightness
                 
                 self.background_photo = ImageTk.PhotoImage(bg_img)
                 print("✓ Background image loaded")
@@ -501,7 +526,7 @@ class YouTubeDataCollectorGUI:
             bg_label = tk.Label(self.gallery_frame, image=self.background_photo, bg=COLORS['bg'])
             bg_label.place(x=0, y=0, relwidth=1, relheight=1)
         
-        # Header with semi-transparent background
+        # Header
         header = tk.Frame(self.gallery_frame, bg=COLORS['primary'], height=70)
         header.pack(fill='x')
         header.pack_propagate(False)
@@ -624,6 +649,14 @@ class YouTubeDataCollectorGUI:
             f"• {config['videos_per_query']} videos per query\n"
             f"• Target: {len(config['queries']) * config['videos_per_query']} videos\n\n"
             f"This may take several minutes. Continue?"
+        )
+        
+        if not confirm:
+            return
+        
+        # Start background music
+        if PYGAME_AVAILABLE:
+            try:
                 pygame.mixer.music.play(-1)  # Loop indefinitely
                 print("♪ Background music started")
             except Exception as e:
