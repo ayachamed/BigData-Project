@@ -58,8 +58,10 @@ class YouTubeCollector:
                         continue
                         
                     # Filter Shorts: Duration must be >= 60 seconds
-                    duration_seconds = utils.parse_duration(stats.get('duration', ''))
+                    duration_str = stats.get('duration', '')
+                    duration_seconds = utils.parse_duration(duration_str)
                     if duration_seconds < 60:
+                        # print(f"     [Debug] Discarded Short: {video_id} ({duration_str})") # Commented out to reduce noise, enable if needed
                         continue
                         
                     video_data = {
@@ -239,17 +241,17 @@ def main():
         p2_start = "2024-10-07T00:00:00Z"
         p2_end = "2025-10-11T23:59:59Z"
         
-        print(f"   - Chunk 1: {p1_start} to {p1_end} (Target: 25)")
-        videos_p1 = collector.search_videos(query, max_results=25, published_after=p1_start, published_before=p1_end)
+        print(f"   - Chunk 1: {p1_start} to {p1_end} (Target: 50)")
+        videos_p1 = collector.search_videos(query, max_results=50, published_after=p1_start, published_before=p1_end)
         
-        print(f"   - Chunk 2: {p2_start} to {p2_end} (Target: 25)")
-        videos_p2 = collector.search_videos(query, max_results=25, published_after=p2_start, published_before=p2_end)
+        print(f"   - Chunk 2: {p2_start} to {p2_end} (Target: 50)")
+        videos_p2 = collector.search_videos(query, max_results=50, published_after=p2_start, published_before=p2_end)
         
         videos = videos_p1 + videos_p2
         
-        # Check if we need to fill up to 50 if one chunk underdelivered (optional, but good for "ensure 50")
-        if len(videos) < 50:
-            deficit = 50 - len(videos)
+        # Check if we need to fill up to 100 if one chunk underdelivered (optional, but good for "ensure 100")
+        if len(videos) < 100:
+            deficit = 100 - len(videos)
             print(f"   - Deficit of {deficit}, trying full range fallback...")
             # Try to get more from full range with no specific split preference to fill gap
             fallback = collector.search_videos(
@@ -263,7 +265,7 @@ def main():
             for fb_v in fallback:
                 if fb_v['videoId'] not in existing_ids:
                     videos.append(fb_v)
-                    if len(videos) >= 50:
+                    if len(videos) >= 100:
                         break
         
         for j, video in enumerate(videos, 1):
