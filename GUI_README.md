@@ -14,10 +14,20 @@
 
 ## Installation
 
+**Critical**: Install ALL dependencies before running:
+
 ```bash
-# Install dependencies
-sudo apt-get install python3-tk
+# Install tkinter and PIL ImageTk support
+sudo apt-get install python3-tk python3-pil.imagetk
+
+# Install Python packages
 pip3 install tkcalendar Pillow
+```
+
+**Common Error**: If you see `ImportError: cannot import name 'ImageTk'`, you're missing `python3-pil.imagetk`:
+```bash
+sudo apt-get install python3-pil.imagetk
+``` Pillow
 ```
 
 ## Quick Start
