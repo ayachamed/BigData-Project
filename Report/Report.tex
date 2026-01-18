@@ -1,0 +1,448 @@
+\documentclass[a4paper,12pt]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{listings} 
+\usepackage{subcaption} 
+\usepackage{svg} % To include SVG logos
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{arabtex} % For Arabic text support
+\usepackage[utf8]{inputenc}
+
+% --- Page Geometry ---
+\geometry{a4paper, margin=2.5cm}
+
+\definecolor{primaryColor}{HTML}{2B85BB} 
+\definecolor{secondaryColor}{HTML}{0F0E0E}
+\definecolor{codeGreen}{rgb}{0,0.6,0}
+\definecolor{codeGray}{rgb}{0.5,0.5,0.5}
+\definecolor{codePurple}{rgb}{0.58,0,0.82}
+\definecolor{lightGray}{HTML}{F5F5F5}
+
+% --- Hyperlink Setup ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primaryColor,
+    filecolor=secondaryColor,      
+    urlcolor=primaryColor,
+}
+
+% --- Code Listing Settings ---
+\lstset{ 
+    language=Python,               
+    backgroundcolor=\color{lightGray},   
+    commentstyle=\color{codeGreen},
+    keywordstyle=\color{primaryColor}\bfseries,
+    numberstyle=\tiny\color{codeGray},
+    stringstyle=\color{codePurple},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,                 
+    breakatwhitespace=false,         
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space}, 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=4,
+    frame=single,
+    rulecolor=\color{codeGray}
+}
+
+% --- Path to images ---
+% Define explicit paths for both standard graphics and SVGs
+\graphicspath{{./}{../outputs/}{../docs/}}
+\svgpath{{./}{../docs/}} 
+
+% --- Header and Footer ---
+\pagestyle{fancy}
+\fancyhf{}
+% Header
+\fancyhead[L]{\textcolor{primaryColor}{\bfseries Big Data Project: YouTube Analytics}}
+\fancyhead[R]{\thepage}
+
+% Footer
+\fancyfoot[C]{\textcolor{secondaryColor}{\small Hadoop & Spark Analysis of Gaza Genocide}}
+
+\renewcommand{\headrulewidth}{1pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{primaryColor}\leaders\hrule height \headrulewidth\hfill}}
+\renewcommand{\footrulewidth}{0.5pt}
+
+% --- Section Styling ---
+\titleformat{\section}
+{\color{primaryColor}\normalfont\Large\bfseries}
+{\thesection}{1em}{}
+
+\titleformat{\subsection}
+{\color{secondaryColor}\normalfont\large\bfseries}
+{\thesubsection}{1em}{}
+
+\begin{document}
+
+% ==============================================================================
+% COVER PAGE
+% ==============================================================================
+\begin{titlepage}
+
+    % Ministry and University Header
+    \centering
+    \textbf{Ministry of Higher Education and Scientific Research} \\
+    \vspace{0.2cm}
+    \textbf{University of Manouba} \\
+    \vspace{0.2cm}
+    \textbf{Higher Institute of Multimedia Arts (ISAMM)}
+    
+    \vspace{1.5cm}
+    
+    % ISAMM Logo (Center)
+    \includegraphics[width=0.35\textwidth]{isamm.png} 
+    
+    \vspace{1.5cm}
+    
+    % Title Section with Themed Horizontal Lines
+    {\color{primaryColor} \hrule height 2pt}
+    \vspace{0.5cm}
+    {\uppercase{\huge \bfseries \color{secondaryColor} Big Data Analysis}} \\
+    \vspace{0.3cm}
+    {\large \bfseries YouTube Content Related to the Gaza Genocide}
+    \vspace{0.5cm}
+    {\color{primaryColor} \hrule height 2pt}
+    
+    \vspace{2cm}
+    
+    % Author and Supervisor Grid
+    \begin{minipage}{0.45\textwidth}
+        \begin{flushleft}
+            \textbf{\color{primaryColor} Prepared by:} \\ 
+            Mohamed Ayacha \\
+            3IM1
+        \end{flushleft}
+    \end{minipage}
+
+    \vfill
+    
+    % Footer Year
+    \textbf{Academic Year:} 2025/2026
+    
+\end{titlepage}
+
+% Table of Contents
+\tableofcontents
+\newpage
+
+% ==============================================================================
+% CONTENT
+% ==============================================================================
+
+% --------------------------------------------------------------------------------
+% Abstract
+% --------------------------------------------------------------------------------
+\section*{Abstract}
+This report details the design and implementation of a comprehensive Big Data analytical pipeline tailored to process and analyze YouTube data concerning the ongoing genocide in Gaza. Leveraging the \textbf{YouTube Data API v3}, the project systematically aggregates video metadata and user comments from October 6, 2023 to October 10, 2025. The infrastructure employs a distributed architecture featuring \textbf{Hadoop HDFS} for resilient data storage and \textbf{Apache Spark} concepts for processing. The analysis, executed via Python, uncovers critical insights into global public engagement, the dominance of major media outlets, and the temporal evolution of digital discourse. This work demonstrates the efficacy of Big Data technologies in interpreting complex, high-volume social media trends.
+
+\newpage
+
+% --------------------------------------------------------------------------------
+% Introduction
+% --------------------------------------------------------------------------------
+\section{1. Introduction \& Problem Statement}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{logo.png}
+\end{figure}
+
+The digital age has fundamentally altered the landscape of geopolitical discourse. Social media platforms, particularly YouTube, serve not only as repositories of user-generated content but as primary sources of news and information for millions globally. The genocide in Gaza has generated an unprecedented volume of digital interaction, providing a unique opportunity to apply data science techniques to understand global feeling.
+
+\subsection{1.1 Problem Identification}
+Analyzing this vast ocean of data presents significant challenges:
+\begin{itemize}
+    \item \textbf{Volume \& Velocity:} The rate of video uploads and comment generation exceeds the capacity of traditional manual analysis or single-threaded processing tools.
+    \item \textbf{Variety:} The data is highly heterogeneous, comprising unstructured text (titles, descriptions, comments), semi-structured metadata (JSON), and numerical engagement metrics.
+    \item \textbf{Veracity:} The politicized nature of the topic requires rigorous data collection methods to ensure a representative sample.
+\end{itemize}
+
+\subsection{1.2 Project Goals}
+The primary objective is to build a scalable pipeline that can:
+\begin{enumerate}
+    \item Ingest data reliably from external APIs.
+    \item Store large datasets in a fault-tolerant manner.
+    \item Process and transform raw data into analytical insights.
+    \item Visualize trends to make complex data accessible.
+\end{enumerate}
+
+% --------------------------------------------------------------------------------
+% The Solution
+% --------------------------------------------------------------------------------
+\section{2. Proposed Solution: The Big Data Pipeline}
+To address these challenges, we designed a pipeline grounded in the \textbf{Lambda Architecture} principles, balancing batch processing with scalable storage. The solution automates the end-to-end flow from data acquisition to insight generation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{"Global Big Data Architecture"}
+    \caption{Overview of the Big Data Architecture from Data Source to Visualization.}
+\end{figure}
+
+The architecture shown above details the complete data journey. Data flows from the YouTube API through our Python Collector, settles in HDFS, moves to Spark for heavy processing, and finally to Pandas for granular analysis and visualization.
+
+\subsection{2.1 Analytical Approach}
+We employ a mixed-methods approach:
+\begin{itemize}
+    \item Descriptive Analytics: To understand "what happened" (e.g., total views, upload frequency).
+    \item Diagnostic Analytics: To understand "why it happened" (e.g., correlating spikes in views with real-world events).
+    \item Text Mining: To extract key themes and dominant narratives from video titles.
+\end{itemize}
+
+% --------------------------------------------------------------------------------
+% System Architecture
+% --------------------------------------------------------------------------------
+\section{3. System Architecture \& Technology Stack}
+
+The architecture is designed for modularity and scalability. Each component plays a specific role in the data lifecycle.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth,height=0.85\textheight,keepaspectratio]{"Detailed Data Flow Diagram"}
+    \caption{Detailed Data Flow Diagram illustrating the interaction between HDFS, Spark, and Python scripts.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth,height=0.85\textheight,keepaspectratio]{"Distributed Processing with Spark"}
+    \caption{Distributed Processing architecture, highlighting the parallel execution capabilities of the Spark engine.}
+\end{figure}
+
+As illustrated, the system separates concerns between storage (HDFS) and compute (Spark/Python). This \textbf{decoupling} allows for independent scaling of resources.
+
+\subsection{3.1 Technology Stack}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includesvg[width=0.8\textwidth]{Hadoop_logo}
+        \caption{Hadoop HDFS}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includesvg[width=0.8\textwidth]{Apache_Spark_logo}
+        \caption{Apache Spark}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includesvg[width=0.6\textwidth]{Python-logo-notext}
+        \caption{Python}
+    \end{subfigure}
+    \caption{Core Technologies Used}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{YouTube Data API v3:} The extraction layer. It allows granular search capabilities, enabling us to filter content by date, relevance, and region.
+    \item \textbf{Hadoop HDFS (Hadoop Distributed File System):} The storage layer. HDFS provides high throughput access to application data and is suitable for applications that have large data sets. It ensures data is replicated across nodes to prevent loss.
+    \item \textbf{Apache Spark:} The processing layer. Spark's in-memory computation capabilities allow for rapid iteration over large datasets, significantly faster than traditional MapReduce.
+    \item \textbf{Python (Pandas, Matplotlib, Seaborn):} The analysis and presentation layer. Python's rich ecosystem of data science libraries makes it ideal for statistical analysis and generating publication-quality figures.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{"Tools-to-Tasks Mapping Diagram"}
+    \caption{Mapping of specific tools to their function within the project pipeline.}
+\end{figure}
+
+% --------------------------------------------------------------------------------
+% Implementation Details
+% --------------------------------------------------------------------------------
+\section{4. Implementation Details (Step-by-Step)}
+
+The project execution followed a strict software development lifecycle suitable for data engineering projects.
+
+\subsection{Phase 1: Environment Configuration}
+Before coding, a robust Big Data environment was established. We utilized a pre-configured Virtual Machine mimicking a single-node cluster.
+\begin{itemize}
+    \item \textbf{HDFS Setup:} Configured `hdfs-site.xml` and `core-site.xml` to define replication factors and NameNode locations.
+    \item \textbf{Service Verification:} Verified `NameNode`, `DataNode`, and `ResourceManager` daemons were active using the Java Process Status (`jps`) tool.
+\end{itemize}
+
+\subsection{Phase 2: Data Ingestion (The Collector)}
+We developed a custom Python module, `src/data_collector.py`, to interface with the Google Cloud Platform. The script implements:
+\begin{itemize}
+    \item Rate Limiting: To respect API quotas.
+    \item Pagination: Handling `nextPageToken` to retrieve deep search results beyond the first page.
+    \item Error Handling: Robust `try-except` blocks to manage network timeouts or API errors.
+\end{itemize}
+
+The search queries were carefully selected to cover various aspects of the conflict, and we configured the collector to retrieve up to 50 videos for each query to ensure a sufficient dataset size:
+\textit{"Gaza war", "Israel Palestine conflict", "Gaza humanitarian crisis", "Palestine news", "Israel Hamas war"}.
+
+\begin{lstlisting}[caption={Core Search Logic in data\_collector.py}]
+def search_videos(self, query, max_results=50, published_after=None, published_before=None):
+    """
+    Executes a search query against the YouTube API.
+    Supports filtering by date range for temporal analysis.
+    """
+    url = f"{self.base_url}/search"
+    params = {
+        'part': 'snippet',
+        'q': query,
+        'type': 'video',
+        'maxResults': min(max_results, 50),
+        'key': self.api_key,
+        'order': 'relevance', # Sort by relevance to get top videos
+        'publishedAfter': published_after,
+        'publishedBefore': published_before
+    }
+    # ... Request handling ...
+\end{lstlisting}
+
+\subsection{Phase 3: Distributed Storage (HDFS Integration)}
+Once collected, data is migrated from the local file system to the Hadoop Distributed File System. This step mimics a production ETL (Extract, Transform, Load) process where data is moved to a data lake.
+
+\begin{lstlisting}[language=bash, caption={HDFS Shell Commands}]
+# 1. Create a dedicated directory structure
+hdfs dfs -mkdir -p /user/project/youtube_data
+
+# 2. Upload the JSON datasets
+hdfs dfs -put data/youtube_videos.json /user/project/youtube_data/
+hdfs dfs -put data/youtube_comments.json /user/project/youtube_data/
+
+# 3. Verify data integrity
+hdfs dfs -ls /user/project/youtube_data/
+\end{lstlisting}
+
+\subsection{Phase 4: Data Processing & Analysis}
+The `src/data_analyzer.py` script serves as the engine for extracting insights. It performs several key transformations:
+\begin{enumerate}
+    \item Data Cleaning: Converting string dates (ISO 8601) into Python datetime objects for temporal sorting.
+    \item Type Casting: Ensuring numerical fields like `viewCount` and `likeCount` are treated as integers/floats, handling any missing values (`NaN`) by filling them with zeros.
+    \item \textbf{Normalization:} Processing text fields (lowercasing, removing stopwords) to prepare for keyword frequency analysis.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{"Logical Processing Steps"}
+    \caption{The logical steps taken during the processing phase, from raw JSON ingestion to cleaned DataFrames.}
+\end{figure}
+
+The diagram above visualizes our cleaning logic. We specifically chose a hybrid approach, using Spark concepts for the heavy lifting design and Python for the implementation flexibility.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{"Hybrid Analytics Approach"}
+    \caption{Illustration of the Hybrid Analytics Model combining Spark's conceptual scalability with Pandas' analytical agility.}
+\end{figure}
+
+\begin{lstlisting}[caption={Text normalization and Word Count}]
+# Tokenizing titles to find most frequent words
+all_words = ' '.join(df_videos['title'].str.lower()).split()
+stop_words = {'the', 'and', 'for', 'with', 'to', 'in', 'of', 'a', 'is'}
+word_counts = Counter([word for word in all_words if len(word) > 3 and word not in stop_words])
+\end{lstlisting}
+
+\subsection{Phase 5: Visualization}
+Finally, `src/data_visualizer.py` converts the processed data into visual narratives. We prioritized clarity, ensuring charts are self-explanatory with proper labeling and legends.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{"Visualization Workflow"}
+    \caption{Workflow for generating visual assets from processed data.}
+\end{figure}
+
+% --------------------------------------------------------------------------------
+% Output & UI
+% --------------------------------------------------------------------------------
+\section{5. Results and Discussion}
+
+The analysis of the dataset collected between Oct 6, 2023 and Oct 10, 2025 yielded significant findings regarding the digital coverage of the conflict.
+
+\subsection{5.1 Media Dominance}
+The analysis of the "Top Channels" clearly indicates that legacy media and established international news outlets dominate the conversation on YouTube. Unlike other social platforms where individual content creators may lead, YouTube searches for this conflict act primarily as a news aggregator.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{top_channels.png} 
+    \caption{Top 10 Channels by Video Count. Note the prevalence of major news networks.}
+\end{figure}
+
+\subsection{5.2 Top Videos by Engagement}
+Analyzing individual video performance reveals which specific content resonated most strongly with audiences.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{top_videos.png} 
+    \caption{Top videos by view count, showcasing the most impactful content pieces.}
+\end{figure}
+
+\subsection{5.3 Temporal Evolution}
+The timeline of video uploads is not linear. It exhibits sharp peaks that correlate strongly with real-world escalation events. This suggests that content creation is highly reactive.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{timeline.png} 
+    \caption{Video upload frequency over time. Peaks correspond to major news events.}
+\end{figure}
+
+\subsection{5.4 Keyword Analysis}
+The textual analysis of video titles reveals a focus on high-impact, emotive keywords. Terms like "War", "Attack", and "Crisis" are far more prevalent than "Peace" or "Resolution", indicating a media focus on the kinetic aspects of the conflict.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{top_words.png} 
+    \caption{Most frequent keywords. The vocabulary is dominated by conflict-related terminology.}
+\end{figure}
+
+\subsection{5.5 Query Distribution}
+Examining the distribution of videos across different search queries reveals the breadth of content coverage.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{query_distribution.png} 
+    \caption{Distribution of video count across different search queries.}
+\end{figure}
+
+\subsection{5.6 Engagement Metrics}
+The query performance chart highlights a disparity in public interest. Search terms related to active conflict ("War", "Conflict") garner significantly more views and likes than those related to humanitarian aspects ("Crisis").
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{query_performance.png} 
+    \caption{Engagement (Views/Likes) distributed by search query.}
+\end{figure}
+
+\newpage
+
+% --------------------------------------------------------------------------------
+% Conclusion
+% --------------------------------------------------------------------------------
+\section{6. Conclusion \& Future Work}
+
+\subsection{Conclusion}
+This project has successfully demonstrated the implementation of a Big Data pipeline for social media analysis. By integrating HDFS for storage and Python/Spark for processing, we have created a scalable framework capable of handling the velocity and variety of YouTube data.
+
+Key takeaways include:
+\begin{enumerate}
+    \item Scalability: The architecture is decoupled, allowing storage and compute to scale independently.
+    \item Insight: The analysis confirmed that digital discourse on the Gaza genocide is news-driven, reactive, and highly engaged with kinetic conflict narratives.
+    \item Reliability: The use of distributed systems ensures data integrity even in the event of hardware failure.
+\end{enumerate}
+
+\subsection{Future Enhancements}
+To further evolve this project, we propose:
+\begin{itemize}
+    \item feeling Analysis: Integrating Natural Language Processing (NLP) models (e.g., VADER or BERT) to classify the feeling of millions of user comments.
+    \item Real-Time Streaming: Implementing Apache Kafka to ingest video data in real-time as it is uploaded.
+    \item Geospatial Analysis: mapping the origin of comments to understand global reactions by region.
+\end{itemize}
+\end{document}
