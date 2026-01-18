@@ -9,7 +9,7 @@ class YouTubeCollector:
         self.api_key = api_key
         self.base_url = "https://www.googleapis.com/youtube/v3"
         
-    def search_videos(self, query, max_results=50, published_after=None, published_before=None):
+    def search_videos(self, query, max_results=25, published_after=None, published_before=None):
         """Search videos by keyword"""
         videos = []
         
@@ -183,7 +183,7 @@ def main():
     for i, query in enumerate(queries, 1):
         print(f"\n Search {i}/{len(queries)}: '{query}'")
         
-        videos = collector.search_videos(query, max_results=20, published_after=published_after, published_before=published_before)
+        videos = collector.search_videos(query, max_results=50, published_after=published_after, published_before=published_before)
         
         for j, video in enumerate(videos, 1):
             print(f"   Video {j}/{len(videos)}: {video['title'][:50]}...")

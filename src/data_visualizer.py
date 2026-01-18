@@ -9,10 +9,15 @@ plt.style.use('default')
 # =========================
 # DATA LOADING
 # =========================
-with open('data/youtube_videos.json', 'r', encoding='utf-8') as f:
-    videos_data = json.load(f)
+# Load CSV data (supports both JSON and CSV)
+import os
 
-df_videos = pd.DataFrame(videos_data)
+if os.path.exists('data/youtube_videos.json'):
+    with open('data/youtube_videos.json', 'r', encoding='utf-8') as f:
+        videos_data = json.load(f)
+    df_videos = pd.DataFrame(videos_data)
+else:
+    df_videos = pd.read_csv('data/youtube_videos.csv')
 
 # Convert numeric columns
 df_videos['viewCount'] = pd.to_numeric(df_videos['viewCount'], errors='coerce')
