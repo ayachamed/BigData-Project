@@ -7,12 +7,20 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from tkcalendar import DateEntry
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageEnhance
 import threading
 import time
 import os
 import sys
 import glob
+
+# Try to import pygame for music (optional)
+try:
+    import pygame
+    PYGAME_AVAILABLE = True
+except ImportError:
+    PYGAME_AVAILABLE = False
+    print("pygame not available - background music disabled")
 
 # Palestinian flag colors
 COLORS = {
@@ -24,6 +32,10 @@ COLORS = {
     'border': '#E0E0E0',
     'input_bg': '#F8F8F8',
 }
+
+# Multimedia files
+BACKGROUND_MUSIC = 'video_2026-01-18_17-41-45_1.mp3'
+BACKGROUND_IMAGE = 'photo_2025-12-31_11-31-41.jpg'
 
 
 class PipelineExecutor:
@@ -214,8 +226,14 @@ class ImageGallery(tk.Frame):
         for img_path in image_files:
             try:
                 img = Image.open(img_path)
-                # Resize to fit
-                img.thumbnail((700, 500), Image.Resampling.LANCZOS)
+                # Resize to fit - compatible with old and new PIL versions
+                try:
+                    # Try new PIL (>= 9.1.0)
+                    img.thumbnail((700, 500), Image.Resampling.LANCZOS)
+                except AttributeError:
+                    # Fall back to old PIL
+                    img.thumbnail((700, 500), Image.LANCZOS)
+                    
                 photo = ImageTk.PhotoImage(img)
                 self.images.append({
                     'path': img_path,
@@ -266,7 +284,21 @@ class YouTubeDataCollectorGUI:
         self.root.resizable(False, False)
         
         # State
-        self.current_view = 'config'  # 'config' or 'gallery'
+        self.current_view = 'config'
+        self.background_photo = None
+        
+        # Initialize music
+        if PYGAME_AVAILABLE and os.path.exists(BACKGROUND_MUSIC):
+            try:
+                pygame.mixer.init()
+                pygame.mixer.music.load(BACKGROUND_MUSIC)
+                pygame.mixer.music.set_volume(0.5)  # 50% volume
+                print("✓ Background music loaded")
+            except Exception as e:
+                print(f"Could not load music: {e}")
+        
+        # Load background image for progress/gallery
+        self.load_background_image()
         
         # Main container
         self.container = tk.Frame(root, bg=COLORS['bg'])
@@ -279,6 +311,25 @@ class YouTubeDataCollectorGUI:
         
         # Show config initially
         self.show_view('config')
+    
+    def load_background_image(self):
+        """Load and prepare background image with transparency."""
+        if os.path.exists(BACKGROUND_IMAGE):
+            try:
+                # Load image
+                bg_img = Image.open(BACKGROUND_IMAGE)
+                
+                # Resize to fit window
+                bg_img = bg_img.resize((800, 700), Image.LANCZOS)
+                
+                # Apply transparency (50%)
+                enhancer = ImageEnhance.Brightness(bg_img.convert('RGB'))
+                bg_img = enhancer.enhance(0.3)  # Darken to 30% for subtle background
+                
+                self.background_photo = ImageTk.PhotoImage(bg_img)
+                print("✓ Background image loaded")
+            except Exception as e:
+                print(f"Could not load background image: {e}")
         
     def create_config_view(self):
         """Create configuration input view."""
@@ -385,16 +436,24 @@ class YouTubeDataCollectorGUI:
         """Create progress display view."""
         self.progress_frame = tk.Frame(self.container, bg=COLORS['bg'])
         
-        # Center content
-        center = tk.Frame(self.progress_frame, bg=COLORS['bg'])
-        center.place(relx=0.5, rely=0.5, anchor='center')
+        # Background image
+        if self.background_photo:
+            bg_label = tk.Label(self.progress_frame, image=self.background_photo, bg=COLORS['bg'])
+            bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        
+        # Center content with semi-transparent background
+        center_bg = tk.Frame(self.progress_frame, bg='white', highlightbackground=COLORS['primary'], highlightthickness=2)
+        center_bg.place(relx=0.5, rely=0.5, anchor='center', width=500, height=300)
+        
+        center = tk.Frame(center_bg, bg='white', padx=30, pady=30)
+        center.pack(fill='both', expand=True)
         
         tk.Label(
             center,
             text="Processing Pipeline",
             font=('Arial', 18, 'bold'),
             fg=COLORS['accent'],
-            bg=COLORS['bg']
+            bg='white'
         ).pack(pady=(0, 20))
         
         self.progress_label = tk.Label(
@@ -402,7 +461,7 @@ class YouTubeDataCollectorGUI:
             text="Initializing...",
             font=('Arial', 12),
             fg=COLORS['fg'],
-            bg=COLORS['bg']
+            bg='white'
         )
         self.progress_label.pack(pady=10)
         
@@ -419,7 +478,7 @@ class YouTubeDataCollectorGUI:
             text="0%",
             font=('Arial', 14, 'bold'),
             fg=COLORS['primary'],
-            bg=COLORS['bg']
+            bg='white'
         )
         self.progress_percent.pack()
         
@@ -437,7 +496,12 @@ class YouTubeDataCollectorGUI:
         """Create image gallery view."""
         self.gallery_frame = tk.Frame(self.container, bg=COLORS['bg'])
         
-        # Header
+        # Background image
+        if self.background_photo:
+            bg_label = tk.Label(self.gallery_frame, image=self.background_photo, bg=COLORS['bg'])
+            bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        
+        # Header with semi-transparent background
         header = tk.Frame(self.gallery_frame, bg=COLORS['primary'], height=70)
         header.pack(fill='x')
         header.pack_propagate(False)
@@ -450,9 +514,12 @@ class YouTubeDataCollectorGUI:
             fg=COLORS['bg']
         ).pack(pady=20)
         
-        # Gallery
-        self.gallery = ImageGallery(self.gallery_frame)
-        self.gallery.pack(fill='both', expand=True, padx=20, pady=10)
+        # Gallery with white background for visibility
+        gallery_container = tk.Frame(self.gallery_frame, bg='white', padx=10, pady=10)
+        gallery_container.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        self.gallery = ImageGallery(gallery_container)
+        self.gallery.pack(fill='both', expand=True)
         
         # Back button
         tk.Button(
@@ -464,8 +531,17 @@ class YouTubeDataCollectorGUI:
             relief='flat',
             padx=30,
             pady=10,
-            command=lambda: self.show_view('config')
+            command=self.stop_music_and_return
         ).pack(pady=10)
+    
+    def stop_music_and_return(self):
+        """Stop music and return to config."""
+        if PYGAME_AVAILABLE:
+            try:
+                pygame.mixer.music.stop()
+            except:
+                pass
+        self.show_view('config')
         
     def create_section_header(self, parent, text, row):
         """Create styled section header."""
@@ -548,10 +624,10 @@ class YouTubeDataCollectorGUI:
             f"• {config['videos_per_query']} videos per query\n"
             f"• Target: {len(config['queries']) * config['videos_per_query']} videos\n\n"
             f"This may take several minutes. Continue?"
-        )
-        
-        if not confirm:
-            return
+                pygame.mixer.music.play(-1)  # Loop indefinitely
+                print("♪ Background music started")
+            except Exception as e:
+                print(f"Could not play music: {e}")
         
         # Show progress view
         self.show_view('progress')
