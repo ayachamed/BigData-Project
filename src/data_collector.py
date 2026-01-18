@@ -199,100 +199,96 @@ class YouTubeCollector:
             df_comments = pd.DataFrame(all_comments)
             df_comments.to_csv(f'{output_dir}/youtube_comments.csv', index=False, encoding='utf-8')
 
+def collect_videos_split_window(collector, query, target=100):
+    """Collect videos using split-window strategy for timeline coverage."""
+    # Split 2023-2025 into two chunks for temporal distribution
+    chunk1_videos = collector.search_videos(
+        query, max_results=50,
+        published_after="2023-10-06T00:00:00Z",
+        published_before="2024-10-06T23:59:59Z"
+    )
+    
+    chunk2_videos = collector.search_videos(
+        query, max_results=50,
+        published_after="2024-10-07T00:00:00Z",
+        published_before="2025-10-11T23:59:59Z"
+    )
+    
+    videos = chunk1_videos + chunk2_videos
+    
+    # Fallback: fill to target if needed
+    if len(videos) < target:
+        deficit = target - len(videos)
+        print(f"   - Collecting {deficit} more videos...")
+        
+        fallback = collector.search_videos(
+            query, max_results=deficit,
+            published_after="2023-10-06T00:00:00Z",
+            published_before="2025-10-11T23:59:59Z"
+        )
+        
+        # Deduplicate
+        existing_ids = {v['videoId'] for v in videos}
+        videos.extend(v for v in fallback if v['videoId'] not in existing_ids)
+    
+    return videos[:target]  # Ensure max limit
+
+
 def main():
-    # Load configuration
+    """Main data collection pipeline."""
+    # Load API key
     try:
         import config
         API_KEY = config.API_KEY
     except ImportError:
-        print("Error: config.py file is missing. Please create a config.py file with your API_KEY.")
+        print("ERROR: config.py missing. Create it with your API_KEY.")
         return
     
-    # Search keywords
+    # Configuration
     queries = [
         "Gaza war",
-        "Israel Palestine conflict", 
+        "Israel Palestine conflict",
         "Gaza humanitarian crisis",
         "Palestine news",
         "Israel Hamas war"
     ]
     
-    # Strict Period: 2023-10-06 to 2025-10-11
-    published_after = "2023-10-06T00:00:00Z"
-    published_before = "2025-10-11T23:59:59Z"
-    
     collector = YouTubeCollector(API_KEY)
-    all_videos_data = []
+    all_videos = []
     
-    print(" Starting YouTube data collection...")
-    print(f" Period: from {published_after} to {published_before}")
-    print(f" Keywords: {queries}")
-    print(" Constraints: >60s duration (Standard), English comments only, 50 videos per query.")
+    print("=== YOUTUBE DATA COLLECTION ===")
+    print(f"Period: 2023-10-06 to 2025-10-11")
+    print(f"Target: 100 long-form videos per query\n")
     
+    # Collect videos for each query
     for i, query in enumerate(queries, 1):
-        print(f"\n Search {i}/{len(queries)}: '{query}'")
+        print(f"\n[{i}/{len(queries)}] {query}")
         
-        # Split into two periods to ensure coverage across the 2-year window
-        # Period 1: 2023-10-06 to 2024-10-06
-        p1_start = "2023-10-06T00:00:00Z"
-        p1_end = "2024-10-06T23:59:59Z"
+        videos = collect_videos_split_window(collector, query, target=100)
         
-        # Period 2: 2024-10-07 to 2025-10-11
-        p2_start = "2024-10-07T00:00:00Z"
-        p2_end = "2025-10-11T23:59:59Z"
-        
-        print(f"   - Chunk 1: {p1_start} to {p1_end} (Target: 50)")
-        videos_p1 = collector.search_videos(query, max_results=50, published_after=p1_start, published_before=p1_end)
-        
-        print(f"   - Chunk 2: {p2_start} to {p2_end} (Target: 50)")
-        videos_p2 = collector.search_videos(query, max_results=50, published_after=p2_start, published_before=p2_end)
-        
-        videos = videos_p1 + videos_p2
-        
-        # Check if we need to fill up to 100 if one chunk underdelivered (optional, but good for "ensure 100")
-        if len(videos) < 100:
-            deficit = 100 - len(videos)
-            print(f"   - Deficit of {deficit}, trying full range fallback...")
-            # Try to get more from full range with no specific split preference to fill gap
-            fallback = collector.search_videos(
-                query, 
-                max_results=deficit, 
-                published_after=published_after, 
-                published_before=published_before
-            )
-            # Avoid duplicates
-            existing_ids = {v['videoId'] for v in videos}
-            for fb_v in fallback:
-                if fb_v['videoId'] not in existing_ids:
-                    videos.append(fb_v)
-                    if len(videos) >= 100:
-                        break
-        
+        # Fetch comments
         for j, video in enumerate(videos, 1):
-            print(f"   Video {j}/{len(videos)}: {video['title'][:50]}... ({video.get('duration', 'N/A')})")
+            title_preview = video['title'][:50] + "..." if len(video['title']) > 50 else video['title']
+            print(f"   [{j}/{len(videos)}] {title_preview}")
             
-            # Get comments
-            comments = collector.get_comments(video['videoId'], max_comments=30)
-            video['comments'] = comments
-            video['commentsCount'] = len(comments)
+            video['comments'] = collector.get_comments(video['videoId'], max_comments=30)
+            video['commentsCount'] = len(video['comments'])
             
-            all_videos_data.append(video)
-            
+            all_videos.append(video)
             time.sleep(0.5)
         
         time.sleep(1)
     
-    # Save data
-    print(f"\n Saving data...")
-    collector.save_to_files(all_videos_data, output_dir="data")
+    # Save
+    print(f"\n💾 Saving data...")
+    collector.save_to_files(all_videos, output_dir="data")
     
-    # Statistics
-    total_comments = sum(len(video.get('comments', [])) for video in all_videos_data)
-    print(f"\n Collection completed!")
-    print(f" Statistics:")
-    print(f"   - Videos collected: {len(all_videos_data)}")
-    print(f"   - Comments collected: {total_comments}")
-    print(f"   - Files created: youtube_videos.json, youtube_videos.csv, youtube_comments.json, youtube_comments.csv")
+    # Summary
+    total_comments = sum(len(v.get('comments', [])) for v in all_videos)
+    print(f"\n✓ Collection completed!")
+    print(f"   - Videos: {len(all_videos)}")
+    print(f"   - Comments: {total_comments}")
+
 
 if __name__ == "__main__":
     main()

@@ -1,52 +1,55 @@
+"""PySpark-based YouTube data analyzer for big data processing."""
+
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    col, count, sum as spark_sum, mean, to_date, 
-    explode, split, lower, regexp_replace, trim, size, collect_list
+    col, count, sum as spark_sum, mean, to_date,
+    explode, udf
 )
-from pyspark.sql.types import StringType
-from pyspark.sql import functions as F
-import json
-from datetime import datetime
+from pyspark.sql.types import StringType, ArrayType
 import re
-from collections import Counter
-import utils
 
-print("=== ANALYSE DES VIDÉOS YOUTUBE SUR GAZA (PySpark) ===")
-
-# Initialize Spark Session
+# Initialize Spark
 spark = SparkSession.builder \
     .appName("YouTubeGazaAnalysis") \
     .config("spark.driver.memory", "2g") \
     .getOrCreate()
-
-# Suppress INFO logs for cleaner output
 spark.sparkContext.setLogLevel("WARN")
 
-# Load data: Use pandas for JSON parsing, then convert to Spark
-# (Spark's read.json() struggles with certain JSON array structures)
+print("=== ANALYSE DES VIDÉOS YOUTUBE SUR GAZA (PySpark) ===\n")
+
+# =============================================================================
+# DATA LOADING
+# =============================================================================
+
 try:
     import pandas as pd_loader
     pd_videos = pd_loader.read_json('data/youtube_videos.json')
     pd_comments = pd_loader.read_json('data/youtube_comments.json')
     
-    # Convert to Spark DataFrames
     df_videos = spark.createDataFrame(pd_videos)
     df_comments = spark.createDataFrame(pd_comments)
     
-    print(f"✓ Data loaded successfully via pandas → Spark conversion")
+    print("✓ Data loaded successfully\n")
     
 except Exception as e:
-    print(f"Files not found! Run data_collector.py first. Error: {e}")
+    print(f"ERROR: {e}")
+    print("Run data_collector.py first!")
     spark.stop()
     exit()
 
-print(f"\n1.  STATISTIQUES GÉNÉRALES")
+
+# =============================================================================
+# 1. GENERAL STATISTICS
+# =============================================================================
+
+print("1. STATISTIQUES GÉNÉRALES")
+
 video_count = df_videos.count()
 comment_count = df_comments.count()
-print(f"   - Vidéos collectées: {video_count}")
-print(f"   - Commentaires collectés: {comment_count}")
+print(f"   - Vidéos: {video_count}")
+print(f"   - Commentaires: {comment_count}")
 
-# Convert numeric columns and calculate stats
+# Calculate means
 df_videos = df_videos.withColumn("viewCount", col("viewCount").cast("long")) \
                      .withColumn("likeCount", col("likeCount").cast("long")) \
                      .withColumn("commentCount", col("commentCount").cast("long"))
@@ -61,167 +64,165 @@ print(f"   - Vues moyennes: {stats['avg_views']:.0f}")
 print(f"   - Likes moyens: {stats['avg_likes']:.0f}")
 print(f"   - Commentaires moyens: {stats['avg_comments']:.0f}")
 
-# 2. TOP 10 CHANNELS using Spark SQL
-print(f"\n2.  TOP 10 DES CHAÎNES")
+
+# =============================================================================
+# 2. TOP CHANNELS (Spark SQL)
+# =============================================================================
+
+print("\n2. TOP 10 DES CHAÎNES")
+
 df_videos.createOrReplaceTempView("videos")
 
 top_channels = spark.sql("""
-    SELECT 
-        channelTitle,
-        COUNT(*) as nb_videos,
-        SUM(viewCount) as total_views,
-        SUM(likeCount) as total_likes
+    SELECT channelTitle,
+           COUNT(*) as nb_videos,
+           SUM(viewCount) as total_views,
+           SUM(likeCount) as total_likes
     FROM videos
     GROUP BY channelTitle
     ORDER BY nb_videos DESC
     LIMIT 10
 """)
 
-# Convert to pandas for display (small dataset)
-top_channels_pd = top_channels.toPandas()
-print(top_channels_pd.to_string(index=False))
+print(top_channels.toPandas().to_string(index=False))
 
+
+# =============================================================================
 # 3. TEMPORAL EVOLUTION
-print(f"\n3.  ÉVOLUTION TEMPORELLE")
-df_videos = df_videos.withColumn("published_date", to_date(col("publishedAt")))
-timeline = df_videos.groupBy("published_date") \
+# =============================================================================
+
+print("\n3. ÉVOLUTION TEMPORELLE")
+
+timeline = df_videos.withColumn("published_date", to_date(col("publishedAt"))) \
+                    .groupBy("published_date") \
                     .agg(count("*").alias("video_count")) \
                     .orderBy(col("published_date").desc()) \
                     .limit(10)
 
 print("Dernières 10 dates:")
-timeline_pd = timeline.toPandas()
-for _, row in timeline_pd.iterrows():
+for row in timeline.collect():
     print(f"  {row['published_date']}: {row['video_count']} vidéos")
 
-# 4. KEYWORD EXTRACTION using Spark transformations
-print(f"\n4.  MOTS-CLÉS DANS LES TITRES (Normalisés)")
 
-# Import utils functions locally to avoid serialization issues
-import utils
-stop_words_local = utils.get_stop_words()
+# =============================================================================  
+# 4. KEYWORD EXTRACTION
+# =============================================================================
 
-def extract_keywords_from_title(title):
-    """Extract and normalize keywords from title - standalone for Spark"""
+print("\n4. MOTS-CLÉS DANS LES TITRES (Normalisés)")
+
+def extract_keywords(title):
+    """Extract keywords from title - simple and clean."""
     if not title:
         return []
     
     import re
     
-    # Inline stop words for Spark worker
-    stop_words = {
-        'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 
+    # Stop words
+    stops = {
+        'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
         'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
-        'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
+        'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her',
         'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their',
-        'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go',
+        'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which',
         'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him',
         'know', 'take', 'people', 'into', 'year', 'your', 'good', 'some',
-        'could', 'them', 'see', 'other', 'than', 'then', 'now', 'look',
-        'only', 'come', 'its', 'over', 'think', 'also', 'back', 'after',
-        'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even',
-        'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us',
-        'video', 'news', 'latest', 'live', 'watch', 'full', 'today', 'update',
-        'breaking', 'vs', 'exclusive', 'special', 'report', 'official'
+        'video', 'news', 'latest', 'live', 'watch', 'full', 'today'
     }
     
-    # Simple normalize function (inline)
-    def normalize_word(word):
-        # Lowercase and remove special chars
-        word = word.lower().strip()
-        word = re.sub(r'[^a-z]', '', word)
-        if not word:
-            return None
-        # Simple stemming
-        if word.endswith('ing'):
-            word = word[:-3]
-        elif word.endswith('ed'):
-            word = word[:-2]
-        elif word.endswith('s') and len(word) > 3:
-            word = word[:-1]
-        # Semantic mappings
-        mappings = {
-            'palestinian': 'palestine',
-            'israeli': 'israel',
-            'gazans': 'gaza'
-        }
-        return mappings.get(word, word)
-    
-    # Remove hashtags
-    title = re.sub(r'#\w+', '', title)
-    
-    # Tokenize and clean
+    # Clean title
+    title = re.sub(r'#\w+', '', title)  # Remove hashtags
     words = re.findall(r'\b\w+\b', title.lower())
     
     # Filter and normalize
     keywords = []
     for word in words:
-        if len(word) > 2 and word not in stop_words:
-            normalized = normalize_word(word)
-            if normalized and len(normalized) > 2:
-                keywords.append(normalized)
+        # Filter short words and stop words
+        if len(word) <= 2 or word in stops:
+            continue
+        
+        # Simple stemming
+        if word.endswith('ing'):
+            word = word[:-3]
+        elif word.endswith('s') and len(word) > 3:
+            word = word[:-1]
+        
+        # Semantic mappings
+        if word in ('palestinian', 'palestinians'):
+            word = 'palestine'
+        elif word in ('israeli', 'israelis'):
+            word = 'israel'
+        
+        if len(word) > 2:
+            keywords.append(word)
     
     return keywords
 
-# Register UDF
-from pyspark.sql.functions import udf
-from pyspark.sql.types import ArrayType
+# Apply UDF
+extract_keywords_udf = udf(extract_keywords, ArrayType(StringType()))
 
-extract_keywords_udf = udf(extract_keywords_from_title, ArrayType(StringType()))
+keyword_counts = df_videos.withColumn("keywords", extract_keywords_udf(col("title"))) \
+                         .select(explode(col("keywords")).alias("keyword")) \
+                         .groupBy("keyword") \
+                         .agg(count("*").alias("count")) \
+                         .orderBy(col("count").desc()) \
+                         .limit(15)
 
-# Apply keyword extraction
-df_with_keywords = df_videos.withColumn("keywords", extract_keywords_udf(col("title")))
-
-# Explode and count keywords
-keyword_counts = df_with_keywords.select(explode(col("keywords")).alias("keyword")) \
-                                  .groupBy("keyword") \
-                                  .agg(count("*").alias("count")) \
-                                  .orderBy(col("count").desc()) \
-                                  .limit(15)
-
-print("Mots les plus fréquents dans les titres:")
+print("Mots les plus fréquents:")
 for row in keyword_counts.collect():
     print(f"   {row['keyword']}: {row['count']}")
 
-# 5. TOP 10 MOST VIEWED VIDEOS
-print(f"\n5.  TOP 10 VIDÉOS LES PLUS VUES")
+
+# =============================================================================
+# 5. TOP VIDEOS
+# =============================================================================
+
+print("\n5. TOP 10 VIDÉOS LES PLUS VUES")
+
 top_videos = df_videos.select("viewCount", "channelTitle", "title") \
                       .orderBy(col("viewCount").desc()) \
                       .limit(10)
 
 for video in top_videos.collect():
-    print(f"   {video['viewCount']} vues - {video['channelTitle']}: {video['title'][:70]}...")
+    title_preview = video['title'][:70] + "..." if len(video['title']) > 70 else video['title']
+    print(f"   {video['viewCount']:,} vues - {video['channelTitle']}: {title_preview}")
 
+
+# =============================================================================
 # 6. COMMENT ANALYSIS
-print(f"\n6.  ANALYSE DES COMMENTAIRES (Filtrés Anglais)")
-print(f"   - Commentaires totaux: {comment_count}")
+# =============================================================================
 
-# Most active authors
+print("\n6. ANALYSE DES COMMENTAIRES")
+print(f"   - Total: {comment_count}")
+
+# Top authors
 df_comments.createOrReplaceTempView("comments")
 top_authors = spark.sql("""
-    SELECT author, COUNT(*) as comment_count
+    SELECT author, COUNT(*) as count
     FROM comments
     GROUP BY author
-    ORDER BY comment_count DESC
+    ORDER BY count DESC
     LIMIT 10
 """)
 
 print("   - Auteurs les plus actifs:")
 for row in top_authors.collect():
-    print(f"     {row['author']}: {row['comment_count']} commentaires")
+    print(f"     {row['author']}: {row['count']} commentaires")
 
-# Most liked comments
-top_liked = df_comments.select("author", "text", "likeCount") \
-                       .orderBy(col("likeCount").desc()) \
-                       .limit(5)
+# Most liked
+top_liked = df_comments.orderBy(col("likeCount").desc()).limit(5)
 
 print("   - Commentaires les plus likés:")
 for row in top_liked.collect():
-    text_preview = row['text'][:80] if row['text'] else ""
-    print(f"     {row['likeCount']} likes - @{row['author']}: {text_preview}...")
+    text_preview = (row['text'][:80] + "...") if row['text'] and len(row['text']) > 80 else row['text']
+    print(f"     {row['likeCount']:,} likes - @{row['author']}: {text_preview}")
 
-# 7. ANALYSIS BY QUERY KEYWORD
-print(f"\n7.  ANALYSE PAR MOT-CLÉ DE RECHERCHE")
+
+# =============================================================================
+# 7. ANALYSIS BY QUERY
+# =============================================================================
+
+print("\n7. ANALYSE PAR MOT-CLÉ DE RECHERCHE")
+
 query_stats = df_videos.groupBy("query") \
                        .agg(
                            count("*").alias("nb_videos"),
@@ -230,20 +231,21 @@ query_stats = df_videos.groupBy("query") \
                        ) \
                        .orderBy("nb_videos", ascending=False)
 
-query_stats_pd = query_stats.toPandas()
-print(query_stats_pd.to_string(index=False))
+print(query_stats.toPandas().to_string(index=False))
 
-# SAVE RESULTS TO CSV (pandas for compatibility with existing pipeline)
-print(f"\n Analyse PySpark terminée avec succès!")
-print(f" Fichiers sauvegardés dans outputs/")
 
-# Convert necessary dataframes to pandas and save
-top_channels_pd.to_csv('outputs/analysis_videos_pyspark.csv', index=False)
+# =============================================================================
+# SAVE RESULTS
+# =============================================================================
 
-# Save comments analysis
-comments_analysis = df_comments.select("videoId", "commentId", "author", "text", "likeCount", "publishedAt") \
-                               .toPandas()
-comments_analysis.to_csv('outputs/analysis_comments_pyspark.csv', index=False)
+print("\n✓ Analyse PySpark terminée avec succès!")
+print("✓ Fichiers sauvegardés dans outputs/")
 
-# Stop Spark session
+# Convert to pandas for CSV compatibility
+top_channels.toPandas().to_csv('outputs/analysis_videos_pyspark.csv', index=False)
+df_comments.select("videoId", "commentId", "author", "text", "likeCount", "publishedAt") \
+          .toPandas() \
+          .to_csv('outputs/analysis_comments_pyspark.csv', index=False)
+
+# Stop Spark
 spark.stop()
