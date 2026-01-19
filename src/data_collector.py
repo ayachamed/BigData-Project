@@ -4,6 +4,7 @@ import time
 import pandas as pd
 from datetime import datetime, timedelta
 import utils
+from utils import get_data_dir
 
 class YouTubeCollector:
     def __init__(self, api_key):
@@ -172,7 +173,35 @@ class YouTubeCollector:
             
         return comments
 
-    def save_to_files(self, videos_data, output_dir="."):
+    def save_to_files(self, videos_data, output_dir=None):
+        """Save data to JSON and CSV files"""
+        if output_dir is None:
+            output_dir = get_data_dir()
+        
+        if not videos_data:
+            print("No data to save.")
+            return
+
+        # Save videos
+        with open(f'{output_dir}/youtube_videos.json', 'w', encoding='utf-8') as f:
+            json.dump(videos_data, f, ensure_ascii=False, indent=2)
+        
+        # Save to CSV
+        df_videos = pd.DataFrame(videos_data)
+        # Drop complex objects for CSV if needed, but pandas usually handles basic dicts as strings
+        df_videos.to_csv(f'{output_dir}/youtube_videos.csv', index=False, encoding='utf-8')
+        
+        # Save all comments
+        all_comments = []
+        for video in videos_data:
+            all_comments.extend(video.get('comments', []))
+        
+        with open(f'{output_dir}/youtube_comments.json', 'w', encoding='utf-8') as f:
+            json.dump(all_comments, f, ensure_ascii=False, indent=2)
+        
+        if all_comments:
+            df_comments = pd.DataFrame(all_comments)
+            df_comments.to_csv(f'{output_dir}/youtube_comments.csv', index=False, encoding='utf-8')
         """Save data to JSON and CSV files"""
         if not videos_data:
             print("No data to save.")

@@ -6,6 +6,13 @@ from pyspark.sql.functions import (
     explode, udf
 )
 from pyspark.sql.types import StringType, ArrayType
+import os
+import sys
+from pathlib import Path
+
+# Add src directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+from utils import get_data_dir, get_outputs_dir
 import re
 
 # Initialize Spark
@@ -23,8 +30,9 @@ print("=== ANALYSE DES VIDÉOS YOUTUBE SUR GAZA (PySpark) ===\n")
 
 try:
     import pandas as pd_loader
-    pd_videos = pd_loader.read_json('data/youtube_videos.json')
-    pd_comments = pd_loader.read_json('data/youtube_comments.json')
+    data_dir = get_data_dir()
+    pd_videos = pd_loader.read_json(f'{data_dir}/youtube_videos.json')
+    pd_comments = pd_loader.read_json(f'{data_dir}/youtube_comments.json')
     
     df_videos = spark.createDataFrame(pd_videos)
     df_comments = spark.createDataFrame(pd_comments)
@@ -241,10 +249,11 @@ print("\n✓ Analyse PySpark terminée avec succès!")
 print("✓ Fichiers sauvegardés dans outputs/")
 
 # Convert to pandas for CSV compatibility
-top_channels.toPandas().to_csv('outputs/analysis_videos_pyspark.csv', index=False)
+outputs_dir = get_outputs_dir()
+top_channels.toPandas().to_csv(f'{outputs_dir}/analysis_videos_pyspark.csv', index=False)
 df_comments.select("videoId", "commentId", "author", "text", "likeCount", "publishedAt") \
           .toPandas() \
-          .to_csv('outputs/analysis_comments_pyspark.csv', index=False)
+          .to_csv(f'{outputs_dir}/analysis_comments_pyspark.csv', index=False)
 
 # Stop Spark
 spark.stop()

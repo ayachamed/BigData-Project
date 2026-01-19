@@ -2,8 +2,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 from collections import Counter
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+import os
 import re
+from pathlib import Path
+import sys
+
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).parent))
 import utils
+from utils import get_data_dir, get_outputs_dir
+import json
 
 # Chart configuration
 plt.style.use('default')
@@ -12,20 +23,23 @@ plt.style.use('default')
 # DATA LOADING
 # =========================
 # Load CSV data (supports both JSON and CSV)
-import os
+data_dir = get_data_dir()
 
-if os.path.exists('data/youtube_videos.json'):
-    with open('data/youtube_videos.json', 'r', encoding='utf-8') as f:
+if os.path.exists(f'{data_dir}/youtube_videos.json'):
+    with open(f'{data_dir}/youtube_videos.json', 'r', encoding='utf-8') as f:
         videos_data = json.load(f)
     df_videos = pd.DataFrame(videos_data)
 else:
-    df_videos = pd.read_csv('data/youtube_videos.csv')
+    df_videos = pd.read_csv(f'{data_dir}/youtube_videos.csv')
 
 # Convert numeric columns
 df_videos['viewCount'] = pd.to_numeric(df_videos['viewCount'], errors='coerce')
 df_videos['likeCount'] = pd.to_numeric(df_videos['likeCount'], errors='coerce')
 
 print(" CREATING VISUALIZATIONS...")
+
+# Get output directory
+outputs_dir = get_outputs_dir()
 
 # =========================
 # 1. TOP CHANNELS
@@ -38,7 +52,7 @@ if not top_channels.empty:
     plt.title('Top 10 Channels by Video Count')
     plt.xlabel('Number of Videos')
     plt.tight_layout()
-    plt.savefig('outputs/top_channels.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{outputs_dir}/top_channels.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 1: Top channels created")
 
@@ -70,7 +84,7 @@ if top_words:
     plt.title('Top 15 Keywords in Titles (Normalized)')
     plt.xlabel('Frequency')
     plt.tight_layout()
-    plt.savefig('outputs/top_words.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{outputs_dir}/top_words.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 2: Top keywords created")
 
@@ -97,7 +111,7 @@ ax2.set_xticklabels(query_stats.index, rotation=45)
 ax2.set_ylabel('Likes')
 
 plt.tight_layout()
-plt.savefig('outputs/query_performance.png', dpi=300, bbox_inches='tight')
+plt.savefig(f'{outputs_dir}/query_performance.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 3: Performance by keyword created")
 
@@ -116,7 +130,7 @@ if not top_videos.empty:
     plt.title('Top 8 Most Viewed Videos')
     plt.xlabel('Views')
     plt.tight_layout()
-    plt.savefig('outputs/top_videos.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{outputs_dir}/top_videos.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 4: Top videos created")
 
@@ -153,7 +167,7 @@ if len(timeline_dates) > 0:
     plt.xticks(rotation=45, ha='right')
     plt.grid(True, alpha=0.3, linestyle='--')
     plt.tight_layout()
-    plt.savefig('outputs/timeline.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{outputs_dir}/timeline.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 5: Timeline created")
 
@@ -170,7 +184,7 @@ plt.pie(
 )
 plt.title('Distribution of Search Keywords')
 plt.tight_layout()
-plt.savefig('outputs/query_distribution.png', dpi=300, bbox_inches='tight')
+plt.savefig(f'{outputs_dir}/query_distribution.png', dpi=300, bbox_inches='tight')
 plt.close()
 print(" Chart 6: Keyword distribution created")
 

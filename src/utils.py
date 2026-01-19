@@ -1,10 +1,57 @@
 """Utility functions for YouTube Big Data pipeline."""
 
 import re
+import os
+from pathlib import Path
+
+# =============================================================================
+# PATH MANAGEMENT
+# =============================================================================
+
+def get_project_root():
+    """Get the project root directory."""
+    return Path(__file__).parent.parent
+
+
+def get_data_dir():
+    """Get the data directory, create if it doesn't exist."""
+    data_dir = get_project_root() / 'data'
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return str(data_dir)
+
+
+def get_outputs_dir():
+    """Get the outputs directory, create if it doesn't exist."""
+    outputs_dir = get_project_root() / 'outputs'
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    return str(outputs_dir)
+
+
+def get_docs_dir():
+    """Get the docs directory."""
+    return str(get_project_root() / 'docs')
+
+
+def get_multimedia_file(filename):
+    """Get path to multimedia file (music, images)."""
+    # Check project root first
+    root_path = get_project_root() / filename
+    if root_path.exists():
+        return str(root_path)
+    
+    # Check docs directory
+    docs_path = get_project_root() / 'docs' / filename
+    if docs_path.exists():
+        return str(docs_path)
+    
+    # Return root path as fallback (will fail gracefully if file doesn't exist)
+    return str(root_path)
+
 
 # =============================================================================
 # LANGUAGE DETECTION
 # =============================================================================
+
 
 def is_english(text):
     """Check if text is likely English using ASCII ratio and stop words."""

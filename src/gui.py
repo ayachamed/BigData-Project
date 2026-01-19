@@ -13,6 +13,11 @@ import time
 import os
 import sys
 import glob
+from pathlib import Path
+
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+from utils import get_multimedia_file, get_outputs_dir
 
 # Try to import pygame for music (optional)
 try:
@@ -37,9 +42,9 @@ COLORS = {
     'input_bg': '#F8F8F8',
 }
 
-# Multimedia files
-BACKGROUND_MUSIC = 'Abu_Ubayda_Mawtini.mp3'
-BACKGROUND_IMAGE = 'photo_2025-12-31_11-31-41.jpg'
+# Multimedia files - use get_multimedia_file utility for proper paths
+BACKGROUND_MUSIC = get_multimedia_file('Abu_Ubayda_Mawtini.mp3')
+BACKGROUND_IMAGE = get_multimedia_file('photo_2025-12-31_11-31-41.jpg')
 
 
 def resize_image(img, size):
@@ -277,7 +282,8 @@ class ImageGallery(tk.Frame):
         
     def load_images(self):
         """Load all images from outputs directory."""
-        image_files = glob.glob('outputs/*.png')
+        outputs_dir = get_outputs_dir()
+        image_files = glob.glob(f'{outputs_dir}/*.png')
         image_files.sort()
         
         self.images = []
