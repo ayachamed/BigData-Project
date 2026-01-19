@@ -47,13 +47,12 @@ print(" Chart 1: Top channels created")
 # =========================
 plt.figure(figsize=(12, 6))
 
-# Keyword extraction (Sync with Analyzer)
+# Keyword extraction using utils for consistent stemming
 all_titles = ' '.join(df_videos['title']).lower()
 all_titles = re.sub(r'#\w+', '', all_titles)  # Remove hashtags
 
-all_words = all_titles.split()
+all_words = re.findall(r'\b\w+\b', all_titles)
 stop_words = utils.get_stop_words()
-stop_words.add('video')
 
 normalized_words = []
 for word in all_words:

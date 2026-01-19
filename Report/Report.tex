@@ -150,7 +150,11 @@
 % Abstract
 % --------------------------------------------------------------------------------
 \section*{Abstract}
-This report details the design and implementation of a comprehensive Big Data analytical pipeline tailored to process and analyze YouTube data concerning the ongoing genocide in Gaza. Leveraging the \textbf{YouTube Data API v3}, the project systematically aggregates video metadata and user comments from October 2023 to October 2025. The infrastructure employs a distributed architecture featuring \textbf{Hadoop HDFS} for resilient data storage and \textbf{Apache Spark} concepts for processing. The analysis, executed via Python, uncovers critical insights into global public engagement, the dominance of major media outlets, and the temporal evolution of digital discourse. This work demonstrates the efficacy of Big Data technologies in interpreting complex, high-volume social media trends.
+This report details the design and implementation of a comprehensive Big Data analytical pipeline tailored to process and analyze YouTube data concerning the ongoing genocide in Gaza. Leveraging the \textbf{YouTube Data API v3}, the project systematically aggregates video metadata and user comments from October 2023 to October 2025. The infrastructure employs a distributed architecture featuring \textbf{Hadoop HDFS} for resilient data storage and \textbf{Apache Spark} concepts for processing. The analysis, executed via Python, uncovers critical insights into global public engagement, the dominance of major media outlets, and the temporal evolution of digital discourse. 
+
+\textbf{New Features:} This version includes an interactive \textbf{Graphical User Interface (GUI)} built with Tkinter, enabling users to configure data collection parameters (date ranges, search queries, result limits) dynamically without modifying code. The interface features a comprehensive image gallery with \textbf{arrow key navigation} for browsing generated charts. Advanced \textbf{keyword stemming} using Porter Stemmer algorithms normalizes text data, reducing keywords to their root forms for more accurate frequency analysis. All user inputs from the GUI are seamlessly integrated into the data processing pipeline for end-to-end automation.
+
+This work demonstrates the efficacy of Big Data technologies in interpreting complex, high-volume social media trends, complemented by user-friendly tools for interactive analysis.
 
 \newpage
 
@@ -177,10 +181,11 @@ Analyzing this vast ocean of data presents significant challenges:
 \subsection{1.2 Project Goals}
 The primary objective is to build a scalable pipeline that can:
 \begin{enumerate}
-    \item Ingest data reliably from external APIs.
+    \item Ingest data reliably from external APIs with user-configurable parameters.
     \item Store large datasets in a fault-tolerant manner.
-    \item Process and transform raw data into analytical insights.
-    \item Visualize trends to make complex data accessible.
+    \item Process and transform raw data into analytical insights with advanced text normalization.
+    \item Visualize trends to make complex data accessible through interactive galleries.
+    \item Provide an intuitive user interface for non-technical end-users to configure and execute the pipeline.
 \end{enumerate}
 
 % --------------------------------------------------------------------------------
@@ -355,8 +360,111 @@ stop_words = {'the', 'and', 'for', 'with', 'to', 'in', 'of', 'a', 'is'}
 word_counts = Counter([word for word in all_words if len(word) > 3 and word not in stop_words])
 \end{lstlisting}
 
-\subsection{Phase 5: Visualization}
-Finally, `src/data_visualizer.py` converts the processed data into visual narratives. We prioritized clarity, ensuring charts are self-explanatory with proper labeling and legends.
+\subsection{Phase 5: Keyword Normalization \& Stemming}
+A critical enhancement to the analysis pipeline is the implementation of advanced keyword normalization through the Porter Stemmer algorithm. The `src/utils.py` module includes:
+
+\begin{itemize}
+    \item \textbf{Stop Words Filtering:} Removal of common English words (the, and, for, etc.) to focus on meaningful content.
+    \item \textbf{Porter Stemming:} Reduction of words to their root form (e.g., "analyzing", "analysis", "analyze" → "analyZ").
+    \item \textbf{Case Normalization:} Converting all text to lowercase for consistent processing.
+    \item \textbf{Punctuation Removal:} Eliminating special characters that don't contribute to semantic meaning.
+\end{itemize}
+
+This ensures that keyword frequency analysis captures the true semantic content of video titles without being skewed by linguistic variations.
+
+\begin{lstlisting}[caption={Stemming Implementation in utils.py}]
+def stem_word(word):
+    """Apply Porter stemming to reduce words to root form."""
+    word = word.lower()
+    if len(word) <= 3:
+        return word
+    # Apply stemming rules...
+    return word
+
+def normalize_text(text, use_stemming=True):
+    """Normalize text by removing stopwords and applying stemming."""
+    stop_words = get_stop_words()
+    words = re.findall(r'\b\w+\b', text.lower())
+    normalized = []
+    for word in words:
+        if word not in stop_words:
+            if use_stemming:
+                normalized.append(stem_word(word))
+            else:
+                normalized.append(word)
+    return normalized
+\end{lstlisting}
+
+\subsection{Phase 6: User Interface (GUI) and Interactive Features}
+A major addition to the project is the development of a comprehensive Graphical User Interface (`src/gui.py`) that democratizes access to the data pipeline. The GUI provides:
+
+\subsubsection{Configuration Panel}
+Users can specify search parameters directly through an intuitive interface:
+\begin{itemize}
+    \item \textbf{Search Queries:} Multi-line text input for custom YouTube search terms.
+    \item \textbf{Date Range Selection:} Interactive calendar widgets to define temporal bounds for data collection.
+    \item \textbf{Result Limits:} Spinbox controls to set maximum number of videos and comments per video.
+    \item \textbf{API Key Management:} Secure input field for authentication.
+\end{itemize}
+
+User inputs are validated and passed directly to the data collection pipeline, ensuring real-time integration of user preferences into the analysis workflow.
+
+\subsubsection{Progress Tracking}
+During pipeline execution, the GUI displays:
+\begin{itemize}
+    \item \textbf{Real-Time Progress Bar:} Visual indicator of data collection, analysis, and visualization stages.
+    \item \textbf{Status Messages:} Detailed textual feedback on current operation (e.g., "Collecting videos for query: Gaza war").
+    \item \textbf{Execution Time:} Total time elapsed since pipeline start.
+\end{itemize}
+
+\subsubsection{Interactive Image Gallery}
+A novel feature introduced is the interactive gallery viewer with keyboard navigation:
+\begin{itemize}
+    \item \textbf{Arrow Key Navigation:} Left/right arrow keys enable users to navigate between generated visualization charts.
+    \item \textbf{Click Navigation:} Previous/Next buttons provide mouse-based alternative navigation.
+    \item \textbf{Dynamic Image Loading:} Automatically discovers and displays all PNG/JPG charts from the `outputs/` directory.
+    \item \textbf{Responsive Display:} Charts are automatically scaled to fit the GUI window while maintaining aspect ratio.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{gui_screenshot_main.png} 
+    \caption{Main GUI Window showing Configuration Panel, Progress Tracking, and Gallery Navigation. (Screenshot to be added)}
+\end{figure}
+
+\subsubsection{Aesthetic Design}
+The GUI incorporates Palestinian color themes and professional styling:
+\begin{itemize}
+    \item \textbf{Primary Color:} Palestinian green (#00732F)
+    \item \textbf{Secondary Color:} Palestinian red (#CE1126)
+    \item \textbf{Accent Color:} Dark gray for text
+    \item \textbf{Background:} Clean white interface with subtle borders
+\end{itemize}
+
+Optional background music (Mawtini) plays during execution, adding cultural context to the analysis process.
+
+\subsubsection{Threading \& Pipeline Execution}
+The `PipelineExecutor` class manages background execution:
+\begin{lstlisting}[caption={Pipeline Execution Architecture}]
+class PipelineExecutor:
+    """Executes the complete data collection, analysis, and visualization pipeline."""
+    
+    def __init__(self, config, progress_callback, complete_callback):
+        self.config = config  # User-supplied parameters
+        self.progress_callback = progress_callback
+        self.complete_callback = complete_callback
+        self.thread = None
+    
+    def run(self):
+        """Execute pipeline stages sequentially."""
+        self.run_collector()  # Collect data with user parameters
+        self.run_analyzer()   # Perform analysis with stemming
+        self.run_visualizer() # Generate charts
+        self.complete_callback()  # Update UI
+\end{lstlisting}
+
+\subsection{Phase 7: Visualization}
+Finally, `src/data_visualizer.py` converts the processed data into visual narratives. We prioritized clarity, ensuring charts are self-explanatory with proper labeling and legends. The visualizer integrates advanced keyword stemming to normalize terminology, reducing variations of words to their root forms for accurate frequency analysis.
 
 \begin{figure}[H]
     \centering
@@ -364,14 +472,166 @@ Finally, `src/data_visualizer.py` converts the processed data into visual narrat
     \caption{Workflow for generating visual assets from processed data.}
 \end{figure}
 
+\subsection{Phase 6: Graphical User Interface (GUI)}
+A comprehensive Tkinter-based GUI application (`src/gui.py`) has been developed to democratize access to the pipeline. The interface features three main views:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{gui_main_screen.png}
+    \caption{GUI Main Screen - Configuration View for Data Collection Parameters}
+\end{figure}
+
+\subsubsection{Configuration View}
+The configuration view allows users to input:
+\begin{itemize}
+    \item \textbf{API Key:} Authentication for YouTube Data API access.
+    \item \textbf{Search Queries:} Custom search terms (one per line) to guide data collection.
+    \item \textbf{Date Range:} Start and end dates using interactive calendar widgets for temporal filtering.
+    \item \textbf{Result Limits:} Maximum number of videos and comments per query to control data volume.
+\end{itemize}
+
+All inputs are validated before execution and directly integrated into the pipeline, eliminating the need for manual code modification.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{gui_config_form.png}
+    \caption{Configuration Form with Date Selectors and Input Fields}
+\end{figure}
+
+\subsubsection{Progress Tracking View}
+During pipeline execution, a progress view displays:
+\begin{itemize}
+    \item Real-time status messages (e.g., "Fetching videos for query: Gaza war").
+    \item Progress bar indicating completion percentage.
+    \item Thread-safe execution to keep the UI responsive.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{gui_progress_view.png}
+    \caption{Progress Tracking Interface During Pipeline Execution}
+\end{figure}
+
+\subsubsection{Interactive Image Gallery}
+The gallery view provides an interactive interface for browsing generated charts:
+\begin{itemize}
+    \item \textbf{Arrow Key Navigation:} Users can navigate between images using left/right arrow keys on the keyboard.
+    \item \textbf{Button Navigation:} Previous/Next buttons for mouse-based navigation.
+    \item \textbf{Image Counter:} Displays current image index and total count.
+    \item \textbf{Keyboard Shortcuts:} Arrow keys (← →) for rapid image browsing.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{gui_gallery_view.png}
+    \caption{Interactive Gallery Viewer with Chart Display and Navigation Controls}
+\end{figure}
+
+\begin{lstlisting}[caption={Gallery Navigation Implementation in gui.py}]
+class ImageGallery(tk.Frame):
+    """Image gallery viewer with arrow key navigation."""
+    
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.images = []
+        self.current_index = 0
+        self.create_widgets()
+        
+        # Bind arrow keys for navigation
+        self.bind_all('<Left>', self._on_left_arrow)
+        self.bind_all('<Right>', self._on_right_arrow)
+    
+    def _on_left_arrow(self, event):
+        """Navigate to previous image on left arrow key press."""
+        self.prev_image()
+    
+    def _on_right_arrow(self, event):
+        """Navigate to next image on right arrow key press."""
+        self.next_image()
+\end{lstlisting}
+
+\subsection{Phase 7: Advanced Text Processing and Keyword Normalization}
+The `src/utils.py` module provides sophisticated text processing functions:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{keyword_stemming_process.png}
+    \caption{Keyword Normalization Pipeline - Converting Variants to Root Forms}
+\end{figure}
+
+\subsubsection{Porter Stemmer Integration}
+Keywords extracted from video titles are processed through a Porter Stemmer algorithm, which reduces word variations to their root forms:
+
+\begin{lstlisting}[caption={Keyword Stemming in utils.py}]
+from nltk.stem import PorterStemmer
+
+def normalize_keyword(word):
+    """
+    Normalize a keyword to its root form using Porter Stemmer.
+    Example: 'attacking', 'attacked', 'attacks' -> 'attack'
+    """
+    stemmer = PorterStemmer()
+    return stemmer.stem(word.lower())
+
+def extract_keywords(title):
+    """
+    Extract normalized keywords from a video title,
+    removing stopwords and applying stemming.
+    """
+    stop_words = get_stop_words()
+    words = title.lower().split()
+    
+    keywords = []
+    for word in words:
+        if len(word) > 3 and word not in stop_words:
+            normalized = normalize_keyword(word)
+            if normalized and len(normalized) > 3:
+                keywords.append(normalized)
+    
+    return keywords
+\end{lstlisting}
+
+Benefits of this approach:
+\begin{itemize}
+    \item \textbf{Accuracy:} Variants like "war", "wars", "warring" are treated as the same concept.
+    \item \textbf{Consistency:} Ensures uniform keyword representation across analyses.
+    \item \textbf{Improved Insights:} More accurate frequency counts and trend analysis.
+\end{itemize}
+
 % --------------------------------------------------------------------------------
 % Output & UI
 % --------------------------------------------------------------------------------
-\section{5. Results and Discussion}
+\section{5. Results and User Interface}
+
+\subsection{5.1 GUI Application}
+The complete system is accessible through an integrated GUI application that combines data collection, analysis, and visualization into a single coherent workflow.
+
+\subsubsection{Configuration Interface}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{gui_config_panel.png} 
+    \caption{GUI Configuration Panel allowing users to customize search queries, date ranges, and collection parameters. (Screenshot to be added)}
+\end{figure}
+
+\subsubsection{Progress Monitoring}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{gui_progress_view.png} 
+    \caption{Progress View showing real-time pipeline execution status. (Screenshot to be added)}
+\end{figure}
+
+\subsubsection{Interactive Gallery Navigation}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{gui_gallery_view.png} 
+    \caption{Gallery View with keyboard navigation (arrow keys) for browsing generated charts. (Screenshot to be added)}
+\end{figure}
+
+\subsection{5.2 Analysis Results}
 
 The analysis of the dataset collected between Oct 2023 and Oct 2025 yielded significant findings regarding the digital coverage of the conflict.
 
-\subsection{5.1 Media Dominance}
+\subsubsection{5.2.1 Media Dominance}
 The analysis of the "Top Channels" clearly indicates that legacy media and established international news outlets dominate the conversation on YouTube. Unlike other social platforms where individual content creators may lead, YouTube searches for this conflict act primarily as a news aggregator.
 
 \begin{figure}[H]
@@ -380,7 +640,7 @@ The analysis of the "Top Channels" clearly indicates that legacy media and estab
     \caption{Top 10 Channels by Video Count. Note the prevalence of major news networks.}
 \end{figure}
 
-\subsection{5.2 Top Videos by Engagement}
+\subsubsection{5.2.2 Top Videos by Engagement}
 Analyzing individual video performance reveals which specific content resonated most strongly with audiences.
 
 \begin{figure}[H]
@@ -389,7 +649,7 @@ Analyzing individual video performance reveals which specific content resonated 
     \caption{Top videos by view count, showcasing the most impactful content pieces.}
 \end{figure}
 
-\subsection{5.3 Temporal Evolution}
+\subsubsection{5.2.3 Temporal Evolution}
 The timeline of video uploads is not linear. It exhibits sharp peaks that correlate strongly with real-world escalation events. This suggests that content creation is highly reactive.
 
 \begin{figure}[H]
@@ -398,16 +658,16 @@ The timeline of video uploads is not linear. It exhibits sharp peaks that correl
     \caption{Video upload frequency over time. Peaks correspond to major news events.}
 \end{figure}
 
-\subsection{5.4 Keyword Analysis}
-The textual analysis of video titles reveals a focus on high-impact, emotive keywords. Terms like "War", "Attack", and "Crisis" are far more prevalent than "Peace" or "Resolution", indicating a media focus on the kinetic aspects of the conflict.
+\subsubsection{5.2.4 Keyword Analysis with Stemming}
+The textual analysis of video titles is enhanced through Porter stemming, ensuring that semantic variations are properly normalized. Keywords like "War", "Attack", and "Crisis" are far more prevalent than "Peace" or "Resolution", indicating a media focus on the kinetic aspects of the conflict.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{top_words.png} 
-    \caption{Most frequent keywords. The vocabulary is dominated by conflict-related terminology.}
+    \caption{Most frequent stemmed keywords. The vocabulary is dominated by conflict-related terminology.}
 \end{figure}
 
-\subsection{5.5 Query Distribution}
+\subsubsection{5.2.5 Query Distribution}
 Examining the distribution of videos across different search queries reveals the breadth of content coverage.
 
 \begin{figure}[H]
@@ -416,7 +676,7 @@ Examining the distribution of videos across different search queries reveals the
     \caption{Distribution of video count across different search queries.}
 \end{figure}
 
-\subsection{5.6 Engagement Metrics}
+\subsubsection{5.2.6 Engagement Metrics}
 The query performance chart highlights a disparity in public interest. Search terms related to active conflict ("War", "Conflict") garner significantly more views and likes than those related to humanitarian aspects ("Crisis").
 
 \begin{figure}[H]
@@ -433,20 +693,65 @@ The query performance chart highlights a disparity in public interest. Search te
 \section{6. Conclusion \& Future Work}
 
 \subsection{Conclusion}
-This project has successfully demonstrated the implementation of a Big Data pipeline for social media analysis. By integrating HDFS for storage and Python/Spark for processing, we have created a scalable framework capable of handling the velocity and variety of YouTube data.
+This project has successfully demonstrated the implementation of a Big Data pipeline for social media analysis with user-centric design principles. By integrating HDFS for storage, Python/Spark for processing, and a comprehensive GUI for ease of use, we have created a scalable, accessible framework capable of handling the velocity and variety of YouTube data.
 
 Key takeaways include:
 \begin{enumerate}
-    \item Scalability: The architecture is decoupled, allowing storage and compute to scale independently.
-    \item Insight: The analysis confirmed that digital discourse on the Gaza genocide is news-driven, reactive, and highly engaged with kinetic conflict narratives.
-    \item Reliability: The use of distributed systems ensures data integrity even in the event of hardware failure.
+    \item \textbf{Scalability:} The architecture is decoupled, allowing storage and compute to scale independently, with configurable parameters for data volume control.
+    \item \textbf{Accessibility:} The Tkinter GUI democratizes access to complex data pipelines, enabling non-technical users to configure and execute analyses.
+    \item \textbf{Text Intelligence:} Advanced keyword stemming normalizes terminology, reducing noise and improving analytical accuracy.
+    \item \textbf{Interactive Exploration:} Arrow key navigation in the gallery provides an intuitive, keyboard-driven interface for result visualization.
+    \item \textbf{Insight:} The analysis confirms that digital discourse on the Gaza genocide is news-driven, reactive, and highly engaged with kinetic conflict narratives.
+    \item \textbf{Reliability:} The use of distributed systems ensures data integrity even in the event of hardware failure.
 \end{enumerate}
 
 \subsection{Future Enhancements}
 To further evolve this project, we propose:
 \begin{itemize}
-    \item Sentiment Analysis: Integrating Natural Language Processing (NLP) models (e.g., VADER or BERT) to classify the sentiment of millions of user comments.
-    \item Real-Time Streaming: Implementing Apache Kafka to ingest video data in real-time as it is uploaded.
-    \item Geospatial Analysis: mapping the origin of comments to understand global reactions by region.
+    \item \textbf{Sentiment Analysis:} Integrating Natural Language Processing (NLP) models (e.g., VADER or BERT) to classify the sentiment of millions of user comments.
+    \item \textbf{Real-Time Streaming:} Implementing Apache Kafka to ingest video data in real-time as it is uploaded.
+    \item \textbf{Geospatial Analysis:} Mapping the origin of comments to understand global reactions by region.
+    \item \textbf{Multi-Language Support:} Extending the GUI to support Arabic, Hebrew, and other languages for broader accessibility.
+    \item \textbf{Advanced Filtering:} Adding filters in the gallery view for chart type, date range, and query-specific results.
+    \item \textbf{Export Capabilities:} Enabling users to export analysis results in multiple formats (PDF, Excel, JSON).
+    \item \textbf{Custom Visualizations:} Allowing users to create custom chart types and save visualization templates.
 \end{itemize}
+
+\section{Appendix: Technical Specifications}
+
+\subsection{System Requirements}
+\begin{itemize}
+    \item Python 3.8 or higher
+    \item Hadoop 3.x (optional, for HDFS integration)
+    \item Apache Spark 3.x (optional, for distributed processing)
+    \item Required Python packages: pyspark, pandas, matplotlib, seaborn, pillow, nltk, tkcalendar, pygame
+\end{itemize}
+
+\subsection{GUI Features Summary}
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|l|p{6cm}|}
+        \hline
+        \textbf{Feature} & \textbf{View} & \textbf{Description} \\
+        \hline
+        Date Selection & Config & Interactive calendar widgets for start/end dates \\
+        \hline
+        Query Input & Config & Multi-line text area for custom search queries \\
+        \hline
+        Result Limits & Config & Spinbox controls for max videos and comments \\
+        \hline
+        Progress Tracking & Progress & Real-time status updates and progress bar \\
+        \hline
+        Arrow Navigation & Gallery & Left/Right arrow keys to browse images \\
+        \hline
+        Button Navigation & Gallery & Previous/Next buttons for mouse control \\
+        \hline
+        Image Counter & Gallery & Display current position in image sequence \\
+        \hline
+        Responsive UI & All & Thread-safe execution prevents UI freezing \\
+        \hline
+    \end{tabular}
+    \caption{GUI Feature Matrix}
+\end{table}
+
 \end{document}

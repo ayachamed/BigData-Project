@@ -111,7 +111,7 @@ for row in timeline.collect():
 print("\n4. MOTS-CLÉS DANS LES TITRES (Normalisés)")
 
 def extract_keywords(title):
-    """Extract keywords from title - simple and clean."""
+    """Extract keywords from title - using utils for consistency."""
     if not title:
         return []
     
@@ -133,29 +133,28 @@ def extract_keywords(title):
     title = re.sub(r'#\w+', '', title)  # Remove hashtags
     words = re.findall(r'\b\w+\b', title.lower())
     
-    # Filter and normalize
+    # Filter and normalize using utils
+    from utils import normalize_keyword
+    
     keywords = []
     for word in words:
         # Filter short words and stop words
         if len(word) <= 2 or word in stops:
             continue
         
-        # Simple stemming
-        if word.endswith('ing'):
-            word = word[:-3]
-        elif word.endswith('s') and len(word) > 3:
-            word = word[:-1]
-        
-        # Semantic mappings
-        if word in ('palestinian', 'palestinians'):
-            word = 'palestine'
-        elif word in ('israeli', 'israelis'):
-            word = 'israel'
-        
-        if len(word) > 2:
-            keywords.append(word)
+        normalized = normalize_keyword(word)
+        if normalized and len(normalized) > 2 and normalized not in stops:
+            keywords.append(normalized)
     
-    return keywords
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_keywords = []
+    for kw in keywords:
+        if kw not in seen:
+            seen.add(kw)
+            unique_keywords.append(kw)
+    
+    return unique_keywords
 
 # Apply UDF
 extract_keywords_udf = udf(extract_keywords, ArrayType(StringType()))

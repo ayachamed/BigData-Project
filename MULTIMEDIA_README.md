@@ -13,7 +13,7 @@ except AttributeError:
 ```
 
 ### 2. Background Music Added 🎵
-- **File**: `video_2026-01-18_17-41-45_1.mp3`
+- **File**: `Abu_Ubayda_Mawtini.mp3`
 - **Volume**: 50% (0.5)
 - **Behavior**: Plays when pipeline starts, loops indefinitely
 - **Stops**: When clicking "Back to Start"
@@ -55,7 +55,7 @@ pip3 install tkcalendar Pillow pygame
 ### Music Implementation
 ```python
 pygame.mixer.init()
-pygame.mixer.music.load('video_2026-01-18_17-41-45_1.mp3')
+pygame.mixer.music.load('Abu_Ubayda_Mawtini.mp3')
 pygame.mixer.music.set_volume(0.5)  # 50% volume
 pygame.mixer.music.play(-1)  # Loop
 ```
@@ -79,7 +79,7 @@ bg_img = enhancer.enhance(0.3)  # 30% brightness for subtle effect
 
 ```
 BigData-Project-main/
-├── video_2026-01-18_17-41-45_1.mp3  # Background music
+├── Abu_Ubayda_Mawtini.mp3  # Background music
 ├── photo_2025-12-31_11-31-41.jpg    # Background image
 └── src/
     └── gui.py                        # Enhanced GUI

@@ -36,7 +36,7 @@ def is_english(text):
 
 
 # =============================================================================
-# KEYWORD NORMALIZATION
+# KEYWORD NORMALIZATION WITH PROPER STEMMING
 # =============================================================================
 
 SEMANTIC_MAPPINGS = {
@@ -45,28 +45,85 @@ SEMANTIC_MAPPINGS = {
     'gazans': 'gaza',
     'israelis': 'israel',
     'israeli': 'israel',
+    'wars': 'war',
+    'conflicts': 'conflict',
+    'humanitarians': 'humanitarian',
+    'attacks': 'attack',
 }
+
+def stem_word(word):
+    """Apply Porter-inspired stemming rules to word."""
+    word = word.lower()
+    
+    # Handle common endings - order matters!
+    # Step 1: Handle "ies" and "es" plurals
+    if word.endswith('ies') and len(word) > 4:
+        return word[:-3] + 'y'
+    if word.endswith('ied') and len(word) > 4:
+        return word[:-3] + 'y'
+    if word.endswith('es') and len(word) > 3:
+        if word.endswith('ches') or word.endswith('shes') or word.endswith('sses'):
+            return word[:-2]
+        return word[:-2]
+    if word.endswith('s') and not word.endswith('ss') and len(word) > 3:
+        return word[:-1]
+    
+    # Step 2: Handle "ed", "ing" verb forms
+    if word.endswith('ated') and len(word) > 5:
+        return word[:-4] + 'ate'
+    if word.endswith('ited') and len(word) > 5:
+        return word[:-3]
+    if word.endswith('ed') and len(word) > 4:
+        return word[:-2]
+    if word.endswith('ing') and len(word) > 5:
+        return word[:-3]
+    if word.endswith('tion') and len(word) > 5:
+        return word[:-4]
+    if word.endswith('sion') and len(word) > 5:
+        return word[:-4]
+    
+    # Step 3: Handle other common endings
+    if word.endswith('ment') and len(word) > 5:
+        return word[:-4]
+    if word.endswith('ness') and len(word) > 5:
+        return word[:-4]
+    if word.endswith('ful') and len(word) > 4:
+        return word[:-3]
+    if word.endswith('less') and len(word) > 5:
+        return word[:-4]
+    if word.endswith('able') and len(word) > 5:
+        return word[:-4]
+    if word.endswith('ible') and len(word) > 5:
+        return word[:-4]
+    if word.endswith('ous') and len(word) > 4:
+        return word[:-3]
+    if word.endswith('ive') and len(word) > 4:
+        return word[:-3]
+    if word.endswith('ly') and len(word) > 3:
+        return word[:-2]
+    
+    return word
 
 def normalize_keyword(word):
     """Normalize keyword: lowercase, stem, and map semantically."""
     word = word.lower().strip()
-    word = re.sub(r'[^\w\s]', '', word)  # Remove punctuation
+    word = re.sub(r'[^\w]', '', word)  # Remove non-word characters
     
-    # Apply semantic mappings
+    if not word or len(word) < 2:
+        return None
+    
+    # Apply semantic mappings first (before stemming)
     if word in SEMANTIC_MAPPINGS:
         return SEMANTIC_MAPPINGS[word]
+    
+    # Apply stemming
+    stemmed = stem_word(word)
+    
+    # Check stemmed version in mappings too
+    if stemmed in SEMANTIC_MAPPINGS:
+        return SEMANTIC_MAPPINGS[stemmed]
         
-    # Simple stemming
-    if word.endswith('ing'):
-        return word[:-3]
-    if word.endswith('ies') and len(word) > 4:
-        return word[:-3] + 'y'
-    if word.endswith('s') and not word.endswith('ss') and len(word) > 3:
-        return word[:-1]
-    if word.endswith('ed') and len(word) > 4:
-        return word[:-2]
-          
-    return word
+    return stemmed
 
 
 def extract_keywords(title):

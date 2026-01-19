@@ -38,7 +38,7 @@ COLORS = {
 }
 
 # Multimedia files
-BACKGROUND_MUSIC = 'video_2026-01-18_17-41-45_1.mp3'
+BACKGROUND_MUSIC = 'Abu_Ubayda_Mawtini.mp3'
 BACKGROUND_IMAGE = 'photo_2025-12-31_11-31-41.jpg'
 
 
@@ -112,35 +112,60 @@ class PipelineExecutor:
             self.complete_callback(False, f"Error: {str(e)}")
     
     def run_collector(self):
-        """Execute data collector."""
+        """Execute data collector with GUI parameters."""
         try:
-            from data_collector import YouTubeCollector, collect_videos_split_window
+            from data_collector import YouTubeCollector
             import config as api_config
+            import time as time_module
             
             collector = YouTubeCollector(api_config.API_KEY)
             all_videos = []
             
             queries = self.config['queries']
+            start_date = self.config['start_date'] + 'T00:00:00Z'
+            end_date = self.config['end_date'] + 'T23:59:59Z'
+            videos_per_query = self.config['videos_per_query']
+            
+            print(f"\n=== COLLECTION PARAMETERS ===")
+            print(f"Queries: {queries}")
+            print(f"Date range: {self.config['start_date']} to {self.config['end_date']}")
+            print(f"Videos per query: {videos_per_query}")
             
             for i, query in enumerate(queries):
                 progress = 10 + (i / len(queries)) * 25
                 self.progress_callback(f"Collecting: {query[:30]}...", progress)
                 
-                videos = collect_videos_split_window(
-                    collector, query, target=self.config['videos_per_query']
-                )
+                # Use search_videos with date parameters
+                videos = []
+                target = videos_per_query
+                
+                # Fetch videos with date range
+                while len(videos) < target:
+                    video_batch = collector.search_videos(
+                        query,
+                        max_results=min(target - len(videos), 50),
+                        published_after=start_date,
+                        published_before=end_date
+                    )
+                    videos.extend(video_batch)
+                    if len(video_batch) < 50:
+                        break
+                
+                videos = videos[:target]  # Limit to target
                 
                 for video in videos:
                     video['comments'] = collector.get_comments(video['videoId'], max_comments=30)
                     video['commentsCount'] = len(video['comments'])
                     all_videos.append(video)
-                    time.sleep(0.3)
+                    time_module.sleep(0.3)
             
             collector.save_to_files(all_videos, output_dir="data")
             return True
             
         except Exception as e:
             print(f"Collector error: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def run_analyzer(self):
@@ -182,6 +207,10 @@ class ImageGallery(tk.Frame):
         self.images = []
         self.current_index = 0
         self.create_widgets()
+        
+        # Bind arrow keys for navigation
+        self.bind_all('<Left>', self._on_left_arrow)
+        self.bind_all('<Right>', self._on_right_arrow)
         
     def create_widgets(self):
         """Build gallery UI."""
@@ -297,6 +326,14 @@ class ImageGallery(tk.Frame):
         if self.images and self.current_index < len(self.images) - 1:
             self.current_index += 1
             self.show_current_image()
+    
+    def _on_left_arrow(self, event):
+        """Handle left arrow key press."""
+        self.prev_image()
+    
+    def _on_right_arrow(self, event):
+        """Handle right arrow key press."""
+        self.next_image()
 
 
 class YouTubeDataCollectorGUI:
